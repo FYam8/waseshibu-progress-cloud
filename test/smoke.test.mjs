@@ -97,13 +97,15 @@ test('formal aggregate remains production-only while device view includes all re
   assert.match(base,/if\(!r\|\|r\.revoked_at\)return json\(\{ok:false,code:'unauthorized'\},401\)/);
 });
 
-test('current-state overlay updates formal and per-device summaries without schema changes',()=>{
+test('current-state overlay updates device state and keeps formal state production-only',()=>{
   assert.match(currentStateWorker,/state:summary/);
   assert.match(currentStateWorker,/state:latest-exam/);
   assert.match(currentStateWorker,/state:year:/);
   assert.match(currentStateWorker,/for\(const device of data\.devices\|\|\[\]\)/);
   assert.match(currentStateWorker,/applyCurrentState\(app,currentRows/);
   assert.match(currentStateWorker,/device\.eventCount=.*recordCount/);
+  assert.match(currentStateWorker,/device\.status!==['"]production['"]/);
+  assert.match(currentStateWorker,/device\.productionFrom\|\|null/);
   assert.doesNotMatch(currentStateWorker,/DROP TABLE|DELETE FROM registrations|DELETE FROM events|DELETE FROM snapshots/);
 });
 
