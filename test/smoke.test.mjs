@@ -103,7 +103,7 @@ test('base formal aggregate remains production-only while device view includes a
   assert.match(base,/if\(!r\|\|r\.revoked_at\)return json\(\{ok:false,code:'unauthorized'\},401\)/);
 });
 
-test('current-state overlay updates device state and rebuilds formal state from production classification',()=>{
+test('current-state overlay updates device state and rebuilds formal state per production registration',()=>{
   assert.match(currentStateWorker,/state:summary/);
   assert.match(currentStateWorker,/state:latest-exam/);
   assert.match(currentStateWorker,/state:year:/);
@@ -111,7 +111,8 @@ test('current-state overlay updates device state and rebuilds formal state from 
   assert.match(currentStateWorker,/applyCurrentState\(app,currentRows/);
   assert.match(currentStateWorker,/device\.eventCount=.*recordCount/);
   assert.match(currentStateWorker,/SELECT id,status,production_from,revoked_at FROM registrations/);
-  assert.match(currentStateWorker,/String\(reg\.status\|\|''\)!==['"]production['"]/);
+  assert.match(currentStateWorker,/productionRegistrations=registrations\.filter/);
+  assert.match(currentStateWorker,/perRegistration=new Map/);
   assert.match(currentStateWorker,/reg\.production_from/);
   assert.doesNotMatch(currentStateWorker,/DROP TABLE|DELETE FROM registrations|DELETE FROM events|DELETE FROM snapshots/);
 });
