@@ -4,17 +4,19 @@ function jsonResponse(data,status=200,headers={}){
   return new Response(JSON.stringify(data),{status,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store',...headers}});
 }
 function safePayload(value){try{return JSON.parse(value||'{}')}catch{return{}}}
-function currentRows(rows,registrationId,appId){
-  return rows.filter(row=>String(row.registration_id)===String(registrationId)&&String(row.app_id)===String(appId));
+function currentRows(rows,registrationId,appId,from=null){
+  return rows.filter(row=>String(row.registration_id)===String(registrationId)&&String(row.app_id)===String(appId)&&(!from||String(row.occurred_at)>=String(from)));
 }
 function applyCurrentState(app,current){
+  let applied=false;
   const summary=current.find(row=>String(row.source_record_id)==='state:summary');
-  if(summary&&Number.isFinite(Number(summary.payload?.total)))app.recordCount=Math.max(0,Math.floor(Number(summary.payload.total)));
+  if(summary&&Number.isFinite(Number(summary.payload?.total))){app.recordCount=Math.max(0,Math.floor(Number(summary.payload.total)));app.lastLearningAt=String(summary.occurred_at);applied=true;}
 
   const exam=current.find(row=>String(row.source_record_id)==='state:latest-exam');
   if(exam){
     if(exam.payload?.completed===false||!Number.isFinite(Number(exam.payload?.score)))app.latestExam=null;
     else app.latestExam={occurredAt:String(exam.occurred_at),year:/^20\d{2}$/.test(String(exam.payload?.year||''))?String(exam.payload.year):null,score:Number(exam.payload.score),maxScore:Number.isFinite(Number(exam.payload?.maxScore))?Number(exam.payload.maxScore):null,kind:typeof exam.payload?.kind==='string'?exam.payload.kind:null};
+    applied=true;
   }
 
   const yearRows=current.filter(row=>String(row.source_record_id).startsWith('state:year:'));
@@ -27,7 +29,17 @@ function applyCurrentState(app,current){
       if(payloadYear!==year)continue;
       years[year]=row.payload?.completed===true||row.event_type==='year_completed'?'done':'started';
     }
-    app.years=years;
+    app.years=years;applied=true;
+  }
+  return applied;
+}
+function blankApp(source){return{appId:source.appId,label:source.label,lastLearningAt:null,latestExam:null,recordCount:0,years:{},progressLabel:source.progressLabel||null};}
+function mergeFormalState(target,part){
+  target.recordCount+=Number(part.recordCount||0);
+  if(part.lastLearningAt&&(!target.lastLearningAt||String(part.lastLearningAt)>String(target.lastLearningAt)))target.lastLearningAt=part.lastLearningAt;
+  if(part.latestExam&&(!target.latestExam||String(part.latestExam.occurredAt)>String(target.latestExam.occurredAt)))target.latestExam=part.latestExam;
+  for(const [year,state] of Object.entries(part.years||{})){
+    if(state==='done'||target.years[year]!=='done')target.years[year]=state;
   }
 }
 
@@ -52,16 +64,26 @@ export class HouseholdProgress extends BaseHouseholdProgress{
         latest.push({...row,payload:safePayload(row.payload_json)});
       }
 
-      for(const app of data.apps){
-        const appId=String(app.appId||'');
-        const current=latest.filter(row=>String(row.app_id)===appId);
-        applyCurrentState(app,current);
-      }
       for(const device of data.devices||[]){
         for(const app of device.apps||[]){
           applyCurrentState(app,currentRows(latest,device.registrationId,app.appId));
         }
         device.eventCount=(device.apps||[]).reduce((n,app)=>n+Number(app.recordCount||0),0);
+      }
+
+      for(const app of data.apps){
+        const parts=[];
+        for(const device of data.devices||[]){
+          if(device.status!=='production')continue;
+          const part=blankApp(app);
+          const current=currentRows(latest,device.registrationId,app.appId,device.productionFrom||null);
+          if(applyCurrentState(part,current))parts.push(part);
+        }
+        if(parts.length){
+          const merged=blankApp(app);
+          for(const part of parts)mergeFormalState(merged,part);
+          app.recordCount=merged.recordCount;app.lastLearningAt=merged.lastLearningAt;app.latestExam=merged.latestExam;app.years=merged.years;
+        }
       }
       return jsonResponse(data,base.status,Object.fromEntries(base.headers.entries()));
     }
