@@ -95,24 +95,25 @@ test('device event counts use logical event rows and do not add snapshot eventCo
   assert.doesNotMatch(platformWorker,/recordCount\s*\+=\s*p\.eventCount/);
 });
 
-test('formal aggregate remains production-only while device view includes all registrations',()=>{
+test('base formal aggregate remains production-only while device view includes all registrations',()=>{
   assert.match(platformWorker,/isFormal=String\(reg\.status\|\|'unclassified'\)==='production'/);
-  assert.match(platformWorker,/!reg\.revoked_at/);
   assert.match(platformWorker,/reg\.production_from/);
   assert.match(platformWorker,/const devices=registrations\.map/);
   assert.match(hardening,/registration\.revoked_at/);
   assert.match(base,/if\(!r\|\|r\.revoked_at\)return json\(\{ok:false,code:'unauthorized'\},401\)/);
 });
 
-test('current-state overlay updates device state and keeps formal state production-only',()=>{
+test('current-state overlay updates device state and rebuilds formal state per production registration',()=>{
   assert.match(currentStateWorker,/state:summary/);
   assert.match(currentStateWorker,/state:latest-exam/);
   assert.match(currentStateWorker,/state:year:/);
   assert.match(currentStateWorker,/for\(const device of data\.devices\|\|\[\]\)/);
   assert.match(currentStateWorker,/applyCurrentState\(app,currentRows/);
   assert.match(currentStateWorker,/device\.eventCount=.*recordCount/);
-  assert.match(currentStateWorker,/device\.status!==['"]production['"]/);
-  assert.match(currentStateWorker,/device\.productionFrom\|\|null/);
+  assert.match(currentStateWorker,/SELECT id,status,production_from,revoked_at FROM registrations/);
+  assert.match(currentStateWorker,/productionRegistrations=registrations\.filter/);
+  assert.match(currentStateWorker,/perRegistration=new Map/);
+  assert.match(currentStateWorker,/reg\.production_from/);
   assert.doesNotMatch(currentStateWorker,/DROP TABLE|DELETE FROM registrations|DELETE FROM events|DELETE FROM snapshots/);
 });
 
