@@ -1,0 +1,20 @@
+name: Progress Cloud validation
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install
+      - name: Worker smoke tests
+        run: npm test
+      - name: Validate Worker bundle and Durable Object config
+        run: npx wrangler deploy --dry-run --outdir dist
