@@ -95,36 +95,31 @@ export class HouseholdProgress extends BaseHouseholdProgress{
         device.eventCount=(device.apps||[]).reduce((n,app)=>n+Number(app.recordCount||0),0);
       }
 
-      const formal=appSet();
+      const productionRegistrations=registrations.filter(reg=>String(reg.status||'')==='production');
+      const perRegistration=new Map(productionRegistrations.map(reg=>[String(reg.id),appSet()]));
       for(const row of latest){
         const reg=registrationMap.get(String(row.registration_id));
-        const app=formal[String(row.app_id)];
-        if(!reg||!app||String(reg.status||'')!=='production')continue;
+        const apps=perRegistration.get(String(row.registration_id));
+        const app=apps?.[String(row.app_id)];
+        if(!reg||!app)continue;
         if(reg.production_from&&String(row.occurred_at)<String(reg.production_from))continue;
         applyGenericEvent(app,row);
       }
       const snapshotRows=this.sql.exec(`SELECT registration_id,app_id,payload_json FROM snapshots`).toArray();
       for(const row of snapshotRows){
         const reg=registrationMap.get(String(row.registration_id));
-        const app=formal[String(row.app_id)];
-        if(!reg||!app||String(reg.status||'')!=='production'||reg.production_from!=null)continue;
+        const apps=perRegistration.get(String(row.registration_id));
+        const app=apps?.[String(row.app_id)];
+        if(!reg||!app||reg.production_from!=null)continue;
         applySnapshot(app,safePayload(row.payload_json));
       }
-
-      for(const appId of APP_IDS){
-        const parts=[];
-        for(const reg of registrations){
-          if(String(reg.status||'')!=='production')continue;
-          const part=blankApp(appId);
-          const current=currentRows(latest,reg.id,appId,reg.production_from||null);
-          if(applyCurrentState(part,current))parts.push(part);
-        }
-        if(parts.length){
-          const merged=blankApp(appId);
-          for(const part of parts)mergeFormalState(merged,part);
-          formal[appId]=merged;
-        }
+      for(const reg of productionRegistrations){
+        const apps=perRegistration.get(String(reg.id));
+        for(const appId of APP_IDS)applyCurrentState(apps[appId],currentRows(latest,reg.id,appId,reg.production_from||null));
       }
+
+      const formal=appSet();
+      for(const apps of perRegistration.values())for(const appId of APP_IDS)mergeFormalState(formal[appId],apps[appId]);
       data.apps=APP_IDS.map(id=>formal[id]);
       return jsonResponse(data,base.status,Object.fromEntries(base.headers.entries()));
     }
