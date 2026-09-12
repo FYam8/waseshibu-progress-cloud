@@ -6,9 +6,10 @@ const base=fs.readFileSync(new URL('../src/indexV2.js',import.meta.url),'utf8');
 const hardening=fs.readFileSync(new URL('../src/indexV3.js',import.meta.url),'utf8');
 const dashboardWorker=fs.readFileSync(new URL('../src/indexV4.js',import.meta.url),'utf8');
 const platformWorker=fs.readFileSync(new URL('../src/indexV5.js',import.meta.url),'utf8');
+const currentStateWorker=fs.readFileSync(new URL('../src/indexV6.js',import.meta.url),'utf8');
 const platformConfig=fs.readFileSync(new URL('../src/platformConfig.js',import.meta.url),'utf8');
 const dashboardUi=fs.readFileSync(new URL('../src/dashboard.js',import.meta.url),'utf8');
-const source=`${base}\n${hardening}\n${dashboardWorker}\n${platformWorker}`;
+const source=`${base}\n${hardening}\n${dashboardWorker}\n${platformWorker}\n${currentStateWorker}`;
 const config=fs.readFileSync(new URL('../wrangler.jsonc',import.meta.url),'utf8');
 
 test('worker exposes registration, sync and admin safety paths',()=>{
@@ -76,6 +77,14 @@ test('dashboard aggregates each subject independently and safely shows empty sub
   assert.match(dashboardUi,/まだCloud同期していない教科は0件表示/);
 });
 
+test('current-state overlay can replace mutable math summary without raw answers',()=>{
+  assert.match(currentStateWorker,/state:summary/);
+  assert.match(currentStateWorker,/state:latest-exam/);
+  assert.match(currentStateWorker,/state:year:/);
+  assert.match(currentStateWorker,/payload\?\.completed===false/);
+  assert.doesNotMatch(currentStateWorker,/answerText|rawAnswer|acceptedAnswers/);
+});
+
 test('formal progress remains production-only and revoked credentials cannot upload',()=>{
   assert.match(platformWorker,/WHERE r\.status='production'/);
   assert.match(hardening,/registration\.revoked_at/);
@@ -83,9 +92,10 @@ test('formal progress remains production-only and revoked credentials cannot upl
 });
 
 test('Durable Object schema is reused without destructive migration',()=>{
-  assert.match(config,/indexV5\.js/);
+  assert.match(config,/indexV6\.js/);
   assert.match(config,/HouseholdProgress/);
+  assert.match(config,/"tag": "v1"/);
   assert.match(config,/new_sqlite_classes/);
   assert.match(config,/ALLOWED_ORIGINS/);
-  assert.doesNotMatch(platformWorker,/DROP TABLE|DELETE FROM registrations|DELETE FROM events|DELETE FROM snapshots/);
+  assert.doesNotMatch(`${platformWorker}\n${currentStateWorker}`,/DROP TABLE|DELETE FROM registrations|DELETE FROM events|DELETE FROM snapshots/);
 });
