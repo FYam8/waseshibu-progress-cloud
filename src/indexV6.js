@@ -1,19 +1,41 @@
 import baseWorker, { HouseholdProgress as BaseHouseholdProgress } from './indexV5.js';
+import { APP_CONFIG, APP_IDS } from './platformConfig.js';
 
 function jsonResponse(data,status=200,headers={}){
   return new Response(JSON.stringify(data),{status,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store',...headers}});
 }
 function safePayload(value){try{return JSON.parse(value||'{}')}catch{return{}}}
+function blankApp(appId){const cfg=APP_CONFIG[appId];return{appId,label:cfg.label,lastLearningAt:null,latestExam:null,recordCount:0,years:{},progressLabel:null};}
+function appSet(){return Object.fromEntries(APP_IDS.map(id=>[id,blankApp(id)]));}
 function currentRows(rows,registrationId,appId,from=null){
   return rows.filter(row=>String(row.registration_id)===String(registrationId)&&String(row.app_id)===String(appId)&&(!from||String(row.occurred_at)>=String(from)));
+}
+function applyGenericEvent(app,row){
+  app.recordCount++;
+  if(!app.lastLearningAt||String(row.occurred_at)>String(app.lastLearningAt))app.lastLearningAt=String(row.occurred_at);
+  const year=String(row.payload?.year||'');
+  if(APP_CONFIG[app.appId].supportsYears&&/^20\d{2}$/.test(year)&&!app.years[year])app.years[year]='started';
+  if((row.event_type==='exam_completed'||row.event_type==='year_completed')&&APP_CONFIG[app.appId].supportsYears&&/^20\d{2}$/.test(year))app.years[year]='done';
+  if(row.event_type==='exam_completed'&&APP_CONFIG[app.appId].supportsExamScore&&(!app.latestExam||String(row.occurred_at)>String(app.latestExam.occurredAt))){
+    app.latestExam={occurredAt:String(row.occurred_at),year:year||null,score:row.payload?.score!=null&&Number.isFinite(Number(row.payload.score))?Number(row.payload.score):null,maxScore:row.payload?.maxScore!=null&&Number.isFinite(Number(row.payload.maxScore))?Number(row.payload.maxScore):null,kind:typeof row.payload?.kind==='string'?row.payload.kind:null};
+  }
+}
+function applySnapshot(app,p){
+  if(APP_CONFIG[app.appId].supportsYears)for(const [year,count] of Object.entries(p.eventsByYear||{})){if(Number(count)>0&&!app.years[year])app.years[year]='started';}
+  if(!app.progressLabel&&typeof p.progressLabel==='string')app.progressLabel=p.progressLabel;
 }
 function applyCurrentState(app,current){
   let applied=false;
   const summary=current.find(row=>String(row.source_record_id)==='state:summary');
   if(summary&&Number.isFinite(Number(summary.payload?.total))){
-    app.recordCount=Math.max(0,Math.floor(Number(summary.payload.total)));
-    const reported=summary.payload?.lastLearningAt;
-    app.lastLearningAt=typeof reported==='string'&&Number.isFinite(Date.parse(reported))?reported:String(summary.occurred_at);
+    const total=Math.max(0,Math.floor(Number(summary.payload.total)));
+    app.recordCount=total;
+    if(total===0){
+      app.lastLearningAt=null;
+    }else{
+      const reported=summary.payload?.lastLearningAt;
+      app.lastLearningAt=typeof reported==='string'&&Number.isFinite(Date.parse(reported))&&Date.parse(reported)>0?reported:String(summary.occurred_at);
+    }
     applied=true;
   }
 
@@ -38,14 +60,12 @@ function applyCurrentState(app,current){
   }
   return applied;
 }
-function blankApp(source){return{appId:source.appId,label:source.label,lastLearningAt:null,latestExam:null,recordCount:0,years:{},progressLabel:source.progressLabel||null};}
 function mergeFormalState(target,part){
   target.recordCount+=Number(part.recordCount||0);
   if(part.lastLearningAt&&(!target.lastLearningAt||String(part.lastLearningAt)>String(target.lastLearningAt)))target.lastLearningAt=part.lastLearningAt;
   if(part.latestExam&&(!target.latestExam||String(part.latestExam.occurredAt)>String(target.latestExam.occurredAt)))target.latestExam=part.latestExam;
-  for(const [year,state] of Object.entries(part.years||{})){
-    if(state==='done'||target.years[year]!=='done')target.years[year]=state;
-  }
+  for(const [year,state] of Object.entries(part.years||{}))if(state==='done'||target.years[year]!=='done')target.years[year]=state;
+  if(!target.progressLabel&&part.progressLabel)target.progressLabel=part.progressLabel;
 }
 
 export default baseWorker;
@@ -58,11 +78,12 @@ export class HouseholdProgress extends BaseHouseholdProgress{
       const data=await base.clone().json().catch(()=>null);
       if(!base.ok||!data?.ok||!Array.isArray(data.apps))return base;
 
-      const rows=this.sql.exec(`SELECT e.registration_id,e.app_id,e.source_record_id,e.revision,e.event_type,e.occurred_at,e.payload_json
-        FROM events e
-        ORDER BY e.registration_id,e.app_id,e.source_record_id,e.revision DESC`).toArray();
+      const registrations=this.sql.exec(`SELECT id,status,production_from,revoked_at FROM registrations`).toArray();
+      const registrationMap=new Map(registrations.map(row=>[String(row.id),row]));
+      const eventRows=this.sql.exec(`SELECT registration_id,app_id,source_record_id,revision,event_type,occurred_at,payload_json
+        FROM events ORDER BY registration_id,app_id,source_record_id,revision DESC`).toArray();
       const latest=[];const seen=new Set();
-      for(const row of rows){
+      for(const row of eventRows){
         const key=`${row.registration_id}:${row.app_id}:${row.source_record_id}`;
         if(seen.has(key))continue;
         seen.add(key);
@@ -70,26 +91,41 @@ export class HouseholdProgress extends BaseHouseholdProgress{
       }
 
       for(const device of data.devices||[]){
-        for(const app of device.apps||[]){
-          applyCurrentState(app,currentRows(latest,device.registrationId,app.appId));
-        }
+        for(const app of device.apps||[])applyCurrentState(app,currentRows(latest,device.registrationId,app.appId));
         device.eventCount=(device.apps||[]).reduce((n,app)=>n+Number(app.recordCount||0),0);
       }
 
-      for(const app of data.apps){
+      const formal=appSet();
+      for(const row of latest){
+        const reg=registrationMap.get(String(row.registration_id));
+        const app=formal[String(row.app_id)];
+        if(!reg||!app||String(reg.status||'')!=='production')continue;
+        if(reg.production_from&&String(row.occurred_at)<String(reg.production_from))continue;
+        applyGenericEvent(app,row);
+      }
+      const snapshotRows=this.sql.exec(`SELECT registration_id,app_id,payload_json FROM snapshots`).toArray();
+      for(const row of snapshotRows){
+        const reg=registrationMap.get(String(row.registration_id));
+        const app=formal[String(row.app_id)];
+        if(!reg||!app||String(reg.status||'')!=='production'||reg.production_from!=null)continue;
+        applySnapshot(app,safePayload(row.payload_json));
+      }
+
+      for(const appId of APP_IDS){
         const parts=[];
-        for(const device of data.devices||[]){
-          if(device.status!=='production')continue;
-          const part=blankApp(app);
-          const current=currentRows(latest,device.registrationId,app.appId,device.productionFrom||null);
+        for(const reg of registrations){
+          if(String(reg.status||'')!=='production')continue;
+          const part=blankApp(appId);
+          const current=currentRows(latest,reg.id,appId,reg.production_from||null);
           if(applyCurrentState(part,current))parts.push(part);
         }
         if(parts.length){
-          const merged=blankApp(app);
+          const merged=blankApp(appId);
           for(const part of parts)mergeFormalState(merged,part);
-          app.recordCount=merged.recordCount;app.lastLearningAt=merged.lastLearningAt;app.latestExam=merged.latestExam;app.years=merged.years;
+          formal[appId]=merged;
         }
       }
+      data.apps=APP_IDS.map(id=>formal[id]);
       return jsonResponse(data,base.status,Object.fromEntries(base.headers.entries()));
     }
     return super.fetch(request);
