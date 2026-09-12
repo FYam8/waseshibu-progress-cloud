@@ -66,18 +66,32 @@ test('admin dashboard is Access-protected and never exposes ADMIN_SECRET',()=>{
   assert.doesNotMatch(dashboardUi,/ADMIN_SECRET|x-admin-secret/i);
 });
 
-test('dashboard aggregates each subject independently and safely shows empty subjects',()=>{
-  assert.match(platformWorker,/Object\.fromEntries\(APP_IDS\.map/);
-  assert.match(platformWorker,/row\.app_id/);
-  assert.match(platformWorker,/recordCount\+\+/);
+test('dashboard exposes five-subject progress for every registered device',()=>{
+  assert.match(platformWorker,/deviceApps=new Map/);
+  assert.match(platformWorker,/allEventRows/);
+  assert.match(platformWorker,/registrationId,deviceCode/);
+  assert.match(platformWorker,/apps=APP_IDS\.map/);
+  assert.match(platformWorker,/eventCount:apps\.reduce/);
   assert.match(platformWorker,/platform:'WaseShibu Progress Platform'/);
   for(const label of ['国語','数学','英語','リスニング','英単語'])assert.match(platformConfig,new RegExp(label));
-  assert.match(dashboardUi,/WaseShibu Progress Admin/);
-  assert.match(dashboardUi,/まだCloud同期していない教科は0件表示/);
+  assert.match(dashboardUi,/登録端末ごとのCloud同期済み学習進捗/);
+  assert.match(dashboardUi,/Cloudへ同期済みの履歴だけ/);
+  assert.match(dashboardUi,/Snapshotの集計値は加算しません/);
+  assert.match(dashboardUi,/d\.apps/);
 });
 
-test('formal progress remains production-only and revoked credentials cannot upload',()=>{
-  assert.match(platformWorker,/WHERE r\.status='production'/);
+test('device event counts use logical event rows and do not add snapshot eventCount',()=>{
+  assert.match(platformWorker,/const key=`\$\{registrationId\}:\$\{appId\}:\$\{row\.source_record_id\}`/);
+  assert.match(platformWorker,/if\(!allSeen\.has\(key\)\)/);
+  assert.match(platformWorker,/applySnapshot\(deviceApps\.get\(registrationId\)\[appId\],p\)/);
+  assert.doesNotMatch(platformWorker,/recordCount\s*\+=\s*p\.eventCount/);
+});
+
+test('formal aggregate remains production-only while device view includes all registrations',()=>{
+  assert.match(platformWorker,/isFormal=String\(reg\.status\|\|'unclassified'\)==='production'/);
+  assert.match(platformWorker,/!reg\.revoked_at/);
+  assert.match(platformWorker,/reg\.production_from/);
+  assert.match(platformWorker,/const devices=registrations\.map/);
   assert.match(hardening,/registration\.revoked_at/);
   assert.match(base,/if\(!r\|\|r\.revoked_at\)return json\(\{ok:false,code:'unauthorized'\},401\)/);
 });
