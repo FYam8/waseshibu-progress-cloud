@@ -10,7 +10,12 @@ function currentRows(rows,registrationId,appId,from=null){
 function applyCurrentState(app,current){
   let applied=false;
   const summary=current.find(row=>String(row.source_record_id)==='state:summary');
-  if(summary&&Number.isFinite(Number(summary.payload?.total))){app.recordCount=Math.max(0,Math.floor(Number(summary.payload.total)));app.lastLearningAt=String(summary.occurred_at);applied=true;}
+  if(summary&&Number.isFinite(Number(summary.payload?.total))){
+    app.recordCount=Math.max(0,Math.floor(Number(summary.payload.total)));
+    const reported=summary.payload?.lastLearningAt;
+    app.lastLearningAt=typeof reported==='string'&&Number.isFinite(Date.parse(reported))?reported:String(summary.occurred_at);
+    applied=true;
+  }
 
   const exam=current.find(row=>String(row.source_record_id)==='state:latest-exam');
   if(exam){

@@ -32,6 +32,13 @@ test('shared payloads remain privacy allowlisted',()=>{
   assert.doesNotMatch(platformWorker,/acceptedAnswers|passageText|rawAnswer|answerText/);
 });
 
+test('state summary may report a sanitized last-learning timestamp',()=>{
+  assert.match(platformWorker,/['"]lastLearningAt['"]/);
+  assert.match(platformWorker,/Date\.parse\(p\.lastLearningAt\)/);
+  assert.match(currentStateWorker,/summary\.payload\?\.lastLearningAt/);
+  assert.match(currentStateWorker,/Date\.parse\(reported\)/);
+});
+
 test('kokugo backward compatibility remains in place',()=>{
   assert.match(base,/APP_ID='kokugo'/);
   assert.match(platformConfig,/kokugo/);
