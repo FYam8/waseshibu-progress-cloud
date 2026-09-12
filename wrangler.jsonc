@@ -1,0 +1,25 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "waseshibu-progress-api",
+  "main": "src/indexV5.js",
+  "compatibility_date": "2026-09-12",
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "PROGRESS",
+        "class_name": "HouseholdProgress"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["HouseholdProgress"]
+    }
+  ],
+  "vars": {
+    "HOUSEHOLD_OBJECT_NAME": "family-main",
+    "ALLOWED_ORIGINS": "https://fyam8.github.io",
+    "ANONYMOUS_REGISTRATION_ENABLED": "1"
+  }
+}
