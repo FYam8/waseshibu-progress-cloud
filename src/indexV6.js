@@ -32,6 +32,7 @@ export class HouseholdProgress extends BaseHouseholdProgress{
         const current=latest.filter(row=>String(row.app_id)===appId);
         const summary=current.filter(row=>String(row.source_record_id)==='state:summary').sort((a,b)=>String(b.occurred_at).localeCompare(String(a.occurred_at)))[0];
         if(summary&&Number.isFinite(Number(summary.payload?.total)))app.recordCount=Math.max(0,Math.floor(Number(summary.payload.total)));
+        if(summary&&typeof summary.payload?.lastLearningAt==='string'&&Number.isFinite(Date.parse(summary.payload.lastLearningAt)))app.lastLearningAt=summary.payload.lastLearningAt;
 
         const exam=current.filter(row=>String(row.source_record_id)==='state:latest-exam').sort((a,b)=>String(b.occurred_at).localeCompare(String(a.occurred_at)))[0];
         if(exam){
