@@ -69,7 +69,7 @@ function mergeFormalState(target,part){
   for(const [year,state] of Object.entries(part.years||{}))if(state==='done'||target.years[year]!=='done')target.years[year]=state;
   if(part.progressLabel){
     if(!target.progressLabel)target.progressLabel=part.progressLabel;
-    else if(target.progressLabel!==part.progressLabel)target.progressLabel='端末ごとに目標が異なります';
+    else if(target.progressLabel!==part.progressLabel&&/^目標 (60|70|75)点$/.test(target.progressLabel)&&/^目標 (60|70|75)点$/.test(part.progressLabel))target.progressLabel='端末ごとに目標が異なります';
   }
 }
 
