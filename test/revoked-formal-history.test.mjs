@@ -10,9 +10,10 @@ test('revoked production registrations remain part of formal history',()=>{
   assert.match(source,/SELECT id,status,production_from,revoked_at FROM registrations/);
 });
 
-test('from-now boundary still excludes earlier records',()=>{
+test('from-now boundary excludes earlier rows and cumulative current state',()=>{
   assert.match(source,/reg\.production_from&&String\(row\.occurred_at\)<String\(reg\.production_from\)/);
-  assert.match(source,/currentRows\(latest,reg\.id,appId,reg\.production_from\|\|null\)/);
+  assert.match(source,/reg\.production_from&&isCurrentStateRow\(row\)/);
+  assert.match(source,/if\(reg\.production_from!=null\)continue/);
 });
 
 test('legacy and current-state registrations are merged independently',()=>{
