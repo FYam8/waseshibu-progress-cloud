@@ -5,7 +5,6 @@ function json(data,status=200,headers={}){
 }
 function uuid(v){return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(v||''));}
 function cleanNickname(v){
-  if(v==null)return '';
   if(typeof v!=='string')return null;
   const value=v.trim();
   if(value.length>60||/[\u0000-\u001f\u007f]/.test(value))return null;
@@ -17,7 +16,10 @@ async function internal(env,path,body={}){
   return{response:r,data:await r.json().catch(()=>({}))};
 }
 async function requireDashboardAccess(request,env){
-  const u=new URL(request.url);u.pathname='/admin/api/summary';u.search='';
+  // Reuse the existing Cloudflare Access verification without generating the
+  // full dashboard summary (which scans learning-history tables). GET /admin
+  // performs the same Access check but only renders the protected shell.
+  const u=new URL(request.url);u.pathname='/admin';u.search='';
   return baseWorker.fetch(new Request(u.toString(),{method:'GET',headers:request.headers}),env);
 }
 
@@ -34,7 +36,8 @@ export default{
       }catch{return json({ok:false,code:'invalid_json'},400);}
       const registrationId=String(body?.registrationId||'');
       const nickname=cleanNickname(body?.nickname);
-      if(!uuid(registrationId)||nickname===null)return json({ok:false,code:'invalid_nickname'},400);
+      if(!uuid(registrationId))return json({ok:false,code:'invalid_registration_id'},400);
+      if(nickname===null)return json({ok:false,code:'invalid_nickname'},400);
       const x=await internal(env,'/internal/admin/nickname',{registrationId,nickname,now:new Date().toISOString()});
       return json(x.data,x.response.status);
     }
@@ -55,7 +58,8 @@ export class HouseholdProgress extends BaseHouseholdProgress{
       const body=await request.json().catch(()=>null);
       const registrationId=String(body?.registrationId||'');
       const nickname=cleanNickname(body?.nickname);
-      if(!uuid(registrationId)||nickname===null)return json({ok:false,code:'invalid_nickname'},400);
+      if(!uuid(registrationId))return json({ok:false,code:'invalid_registration_id'},400);
+      if(nickname===null)return json({ok:false,code:'invalid_nickname'},400);
       const exists=this.sql.exec('SELECT id FROM registrations WHERE id=? LIMIT 1',registrationId).toArray()[0];
       if(!exists)return json({ok:false,code:'registration_not_found'},404);
       this.sql.exec('UPDATE registrations SET nickname=? WHERE id=?',nickname||null,registrationId);
