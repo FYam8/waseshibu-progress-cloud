@@ -36,6 +36,8 @@ function applyCurrentState(app,current){
       const reported=summary.payload?.lastLearningAt;
       app.lastLearningAt=typeof reported==='string'&&Number.isFinite(Date.parse(reported))&&Date.parse(reported)>0?reported:String(summary.occurred_at);
     }
+    const target=/^target-(60|70|75)$/.exec(String(summary.payload?.kind||''));
+    if(target)app.progressLabel=`目標 ${target[1]}点`;
     applied=true;
   }
 
