@@ -8,9 +8,10 @@ const dashboardWorker=fs.readFileSync(new URL('../src/indexV4.js',import.meta.ur
 const platformWorker=fs.readFileSync(new URL('../src/indexV5.js',import.meta.url),'utf8');
 const currentStateWorker=fs.readFileSync(new URL('../src/indexV6.js',import.meta.url),'utf8');
 const neutralWorker=fs.readFileSync(new URL('../src/indexV7.js',import.meta.url),'utf8');
+const nicknameWorker=fs.readFileSync(new URL('../src/indexV8.js',import.meta.url),'utf8');
 const platformConfig=fs.readFileSync(new URL('../src/platformConfig.js',import.meta.url),'utf8');
 const dashboardUi=fs.readFileSync(new URL('../src/dashboard.js',import.meta.url),'utf8');
-const source=`${base}\n${hardening}\n${dashboardWorker}\n${platformWorker}\n${currentStateWorker}\n${neutralWorker}`;
+const source=`${base}\n${hardening}\n${dashboardWorker}\n${platformWorker}\n${currentStateWorker}\n${neutralWorker}\n${nicknameWorker}`;
 const config=fs.readFileSync(new URL('../wrangler.jsonc',import.meta.url),'utf8');
 
 test('worker exposes registration, sync and admin safety paths',()=>{
@@ -132,10 +133,12 @@ test('current-state overlay updates device state and rebuilds formal state per p
 });
 
 test('Durable Object schema is reused without destructive migration',()=>{
-  assert.match(config,/indexV7\.js/);
+  assert.match(config,/indexV8\.js/);
   assert.match(config,/HouseholdProgress/);
   assert.match(config,/new_sqlite_classes/);
   assert.match(config,/ALLOWED_ORIGINS/);
+  assert.match(nicknameWorker,/ALTER TABLE registrations ADD COLUMN nickname TEXT/);
   assert.doesNotMatch(platformWorker,/DROP TABLE|DELETE FROM registrations|DELETE FROM events|DELETE FROM snapshots/);
   assert.doesNotMatch(neutralWorker,/new_sqlite_classes|migration|DROP TABLE|DELETE FROM registrations|DELETE FROM events|DELETE FROM snapshots/);
+  assert.doesNotMatch(nicknameWorker,/new_sqlite_classes|migration|DROP TABLE|DELETE FROM registrations|DELETE FROM events|DELETE FROM snapshots/);
 });
