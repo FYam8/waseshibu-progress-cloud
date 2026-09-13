@@ -10,6 +10,7 @@ function appSet(){return Object.fromEntries(APP_IDS.map(id=>[id,blankApp(id)]));
 function currentRows(rows,registrationId,appId,from=null){
   return rows.filter(row=>String(row.registration_id)===String(registrationId)&&String(row.app_id)===String(appId)&&(!from||String(row.occurred_at)>=String(from)));
 }
+function isCurrentStateRow(row){return String(row?.source_record_id||'').startsWith('state:');}
 function applyGenericEvent(app,row){
   app.recordCount++;
   if(!app.lastLearningAt||String(row.occurred_at)>String(app.lastLearningAt))app.lastLearningAt=String(row.occurred_at);
@@ -108,6 +109,10 @@ export class HouseholdProgress extends BaseHouseholdProgress{
         const app=apps?.[String(row.app_id)];
         if(!reg||!app)continue;
         if(reg.production_from&&String(row.occurred_at)<String(reg.production_from))continue;
+        // Current-state payloads summarize all local history. For a from-now
+        // registration they would re-import pre-boundary learner/test history,
+        // so exclude those synthetic state rows from the formal aggregate.
+        if(reg.production_from&&isCurrentStateRow(row))continue;
         applyGenericEvent(app,row);
       }
       const snapshotRows=this.sql.exec(`SELECT registration_id,app_id,payload_json FROM snapshots`).toArray();
@@ -119,8 +124,9 @@ export class HouseholdProgress extends BaseHouseholdProgress{
         applySnapshot(app,safePayload(row.payload_json));
       }
       for(const reg of productionRegistrations){
+        if(reg.production_from!=null)continue;
         const apps=perRegistration.get(String(reg.id));
-        for(const appId of APP_IDS)applyCurrentState(apps[appId],currentRows(latest,reg.id,appId,reg.production_from||null));
+        for(const appId of APP_IDS)applyCurrentState(apps[appId],currentRows(latest,reg.id,appId));
       }
 
       const formal=appSet();
