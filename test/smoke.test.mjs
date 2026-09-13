@@ -7,9 +7,10 @@ const hardening=fs.readFileSync(new URL('../src/indexV3.js',import.meta.url),'ut
 const dashboardWorker=fs.readFileSync(new URL('../src/indexV4.js',import.meta.url),'utf8');
 const platformWorker=fs.readFileSync(new URL('../src/indexV5.js',import.meta.url),'utf8');
 const currentStateWorker=fs.readFileSync(new URL('../src/indexV6.js',import.meta.url),'utf8');
+const neutralWorker=fs.readFileSync(new URL('../src/indexV7.js',import.meta.url),'utf8');
 const platformConfig=fs.readFileSync(new URL('../src/platformConfig.js',import.meta.url),'utf8');
 const dashboardUi=fs.readFileSync(new URL('../src/dashboard.js',import.meta.url),'utf8');
-const source=`${base}\n${hardening}\n${dashboardWorker}\n${platformWorker}\n${currentStateWorker}`;
+const source=`${base}\n${hardening}\n${dashboardWorker}\n${platformWorker}\n${currentStateWorker}\n${neutralWorker}`;
 const config=fs.readFileSync(new URL('../wrangler.jsonc',import.meta.url),'utf8');
 
 test('worker exposes registration, sync and admin safety paths',()=>{
@@ -22,6 +23,12 @@ test('shared platform accepts exactly the five subject app ids',()=>{
   assert.match(platformWorker,/APP_ID_SET\.has\(appId\)/);
   assert.match(platformWorker,/app_not_allowed/);
   assert.doesNotMatch(platformConfig,/science|social/);
+});
+
+test('new shared registrations use a neutral device code without rewriting existing rows',()=>{
+  assert.match(neutralWorker,/WS-/);
+  assert.match(neutralWorker,/extends BaseHouseholdProgress/);
+  assert.doesNotMatch(neutralWorker,/UPDATE registrations SET device_code|DELETE FROM registrations|DROP TABLE/);
 });
 
 test('shared payloads remain privacy allowlisted',()=>{
@@ -88,6 +95,13 @@ test('dashboard exposes five-subject progress for every registered device',()=>{
   assert.match(dashboardUi,/d\.apps/);
 });
 
+test('dashboard keeps exam year and first-look/reference context visible',()=>{
+  assert.match(dashboardUi,/first-look':'初見/);
+  assert.match(dashboardUi,/reference:'参考/);
+  assert.match(dashboardUi,/String\(exam\.year\)\+'年 '/);
+  assert.match(dashboardUi,/const years=\[2026,2025,2024,2023,2022,2021,2020,2019\]/);
+});
+
 test('device event counts use logical event rows and do not add snapshot eventCount',()=>{
   assert.match(platformWorker,/const key=`\$\{registrationId\}:\$\{appId\}:\$\{row\.source_record_id\}`/);
   assert.match(platformWorker,/if\(!allSeen\.has\(key\)\)/);
@@ -118,9 +132,10 @@ test('current-state overlay updates device state and rebuilds formal state per p
 });
 
 test('Durable Object schema is reused without destructive migration',()=>{
-  assert.match(config,/indexV6\.js/);
+  assert.match(config,/indexV7\.js/);
   assert.match(config,/HouseholdProgress/);
   assert.match(config,/new_sqlite_classes/);
   assert.match(config,/ALLOWED_ORIGINS/);
   assert.doesNotMatch(platformWorker,/DROP TABLE|DELETE FROM registrations|DELETE FROM events|DELETE FROM snapshots/);
+  assert.doesNotMatch(neutralWorker,/new_sqlite_classes|migration|DROP TABLE|DELETE FROM registrations|DELETE FROM events|DELETE FROM snapshots/);
 });
