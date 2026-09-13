@@ -67,7 +67,10 @@ function mergeFormalState(target,part){
   if(part.lastLearningAt&&(!target.lastLearningAt||String(part.lastLearningAt)>String(target.lastLearningAt)))target.lastLearningAt=part.lastLearningAt;
   if(part.latestExam&&(!target.latestExam||String(part.latestExam.occurredAt)>String(target.latestExam.occurredAt)))target.latestExam=part.latestExam;
   for(const [year,state] of Object.entries(part.years||{}))if(state==='done'||target.years[year]!=='done')target.years[year]=state;
-  if(!target.progressLabel&&part.progressLabel)target.progressLabel=part.progressLabel;
+  if(part.progressLabel){
+    if(!target.progressLabel)target.progressLabel=part.progressLabel;
+    else if(target.progressLabel!==part.progressLabel)target.progressLabel='端末ごとに目標が異なります';
+  }
 }
 
 export default baseWorker;
