@@ -1,5 +1,5 @@
 export function dashboardHtml(nonce){
-  const years=[2024,2023,2022,2021,2020,2019,2025,2026];
+  const years=[2026,2025,2024,2023,2022,2021,2020,2019];
   return `<!doctype html>
 <html lang="ja">
 <head>
@@ -31,7 +31,13 @@ const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&
 function when(v){if(!v)return '—';const d=new Date(v);return Number.isNaN(d.getTime())?'—':d.toLocaleString('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});}
 function statusLabel(v){return({production:'production',unclassified:'unclassified',ignored:'ignored',revoked:'revoked'})[v]||'unclassified';}
 async function api(path,options){const r=await fetch(path,{credentials:'same-origin',headers:{'content-type':'application/json',...(options?.headers||{})},...options});const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.code||('HTTP '+r.status));return d;}
-function examText(exam){const hasScore=exam&&exam.score!=null&&Number.isFinite(Number(exam.score));const hasMax=exam&&exam.maxScore!=null&&Number.isFinite(Number(exam.maxScore));return hasScore?(Number(exam.score)+(hasMax?'/'+Number(exam.maxScore):'')+'点'):'—';}
+function examText(exam){
+  const hasScore=exam&&exam.score!=null&&Number.isFinite(Number(exam.score));if(!hasScore)return '—';
+  const hasMax=exam.maxScore!=null&&Number.isFinite(Number(exam.maxScore));
+  const year=/^20\d{2}$/.test(String(exam.year||''))?String(exam.year)+'年 ':'';
+  const kind=({'first-look':'初見',reference:'参考',first:'初回',retake:'再受験'})[String(exam.kind||'')]||'';
+  return year+Number(exam.score)+(hasMax?'/'+Number(exam.maxScore):'')+'点'+(kind?'（'+kind+'）':'');
+}
 function appHtml(app){
   const states=app.years||{};
   const years=Object.keys(states).length?'<div class="years">'+YEARS.map(y=>{const s=states[String(y)]||'notstarted';const label=s==='done'?'✅ 完了':s==='started'?'▶ 途中':'－ 未着手';return '<div class="year '+s+'"><b>'+y+'</b><br>'+label+'</div>';}).join('')+'</div>':'';
