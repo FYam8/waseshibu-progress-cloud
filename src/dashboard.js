@@ -41,7 +41,8 @@ function examText(exam){
 }
 function appHtml(app){
   const states=app.years||{};
-  const years=YEAR_APPS.has(String(app.appId))?'<div class="years">'+YEARS.map(y=>{const s=states[String(y)]||'notstarted';const label=s==='done'?'✅ 完了':s==='started'?'▶ 途中':'－ 未着手';return '<div class="year '+s+'"><b>'+y+'</b><br>'+label+'</div>';}).join('')+'</div>':'';
+  const hasYearState=Object.keys(states).length>0||Number(app.recordCount||0)>0||!!app.lastLearningAt||!!app.latestExam||!!app.progressLabel;
+  const years=YEAR_APPS.has(String(app.appId))&&hasYearState?'<div class="years">'+YEARS.map(y=>{const s=states[String(y)]||'notstarted';const label=s==='done'?'✅ 完了':s==='started'?'▶ 途中':'－ 未着手';return '<div class="year '+s+'"><b>'+y+'</b><br>'+label+'</div>';}).join('')+'</div>':'';
   const progress=app.progressLabel?'<div class="progressLabel">'+esc(app.progressLabel)+'</div>':'';
   return '<div class="appCard"><div class="appTitle"><h3>'+esc(app.label||app.appId)+'</h3><span class="small">'+esc(app.appId)+'</span></div>'+
     '<div class="summary"><div class="metric">最終学習<b>'+esc(when(app.lastLearningAt))+'</b></div><div class="metric">直近過去問<b>'+esc(examText(app.latestExam))+'</b></div><div class="metric">学習記録<b>'+Number(app.recordCount||0)+'件</b></div></div>'+years+progress+'</div>';
