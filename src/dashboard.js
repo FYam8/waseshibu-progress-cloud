@@ -26,6 +26,7 @@ export function dashboardHtml(nonce){
 </main>
 <script nonce="${nonce}">
 const YEARS=${JSON.stringify(years)};
+const YEAR_APPS=new Set(['kokugo','math','english']);
 const $=id=>document.getElementById(id);
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function when(v){if(!v)return '—';const d=new Date(v);return Number.isNaN(d.getTime())?'—':d.toLocaleString('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});}
@@ -40,7 +41,7 @@ function examText(exam){
 }
 function appHtml(app){
   const states=app.years||{};
-  const years=Object.keys(states).length?'<div class="years">'+YEARS.map(y=>{const s=states[String(y)]||'notstarted';const label=s==='done'?'✅ 完了':s==='started'?'▶ 途中':'－ 未着手';return '<div class="year '+s+'"><b>'+y+'</b><br>'+label+'</div>';}).join('')+'</div>':'';
+  const years=YEAR_APPS.has(String(app.appId))?'<div class="years">'+YEARS.map(y=>{const s=states[String(y)]||'notstarted';const label=s==='done'?'✅ 完了':s==='started'?'▶ 途中':'－ 未着手';return '<div class="year '+s+'"><b>'+y+'</b><br>'+label+'</div>';}).join('')+'</div>':'';
   const progress=app.progressLabel?'<div class="progressLabel">'+esc(app.progressLabel)+'</div>':'';
   return '<div class="appCard"><div class="appTitle"><h3>'+esc(app.label||app.appId)+'</h3><span class="small">'+esc(app.appId)+'</span></div>'+
     '<div class="summary"><div class="metric">最終学習<b>'+esc(when(app.lastLearningAt))+'</b></div><div class="metric">直近過去問<b>'+esc(examText(app.latestExam))+'</b></div><div class="metric">学習記録<b>'+Number(app.recordCount||0)+'件</b></div></div>'+years+progress+'</div>';

@@ -20,3 +20,9 @@ test('latest exam display keeps year and score validity context',()=>{
 test('year cards use a consistent newest-to-oldest order',()=>{
   assert.match(dashboard,/const years=\[2026,2025,2024,2023,2022,2021,2020,2019\]/);
 });
+
+test('exam subjects show all years even when none have started',()=>{
+  assert.match(dashboard,/YEAR_APPS=new Set\(\['kokugo','math','english'\]\)/);
+  assert.match(dashboard,/YEAR_APPS\.has\(String\(app\.appId\)\)/);
+  assert.match(dashboard,/s==='done'\?'✅ 完了':s==='started'\?'▶ 途中':'－ 未着手'/);
+});
