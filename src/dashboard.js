@@ -15,7 +15,7 @@ export function dashboardHtml(nonce){
 <div id="message" class="notice">読み込み中…</div>
 <section class="card">
 <h2>登録端末ごとのCloud同期済み学習進捗</h2>
-<p class="notice">この画面にはCloudへ同期済みの履歴だけを表示します。端末内にのみ存在する未同期履歴は含みません。学習記録件数はEvent明細の論理件数で、Snapshotの集計値は加算しません。</p>
+<p class="notice">この画面にはCloudへ同期済みの履歴だけを表示します。端末内にのみ存在する未同期履歴は含みません。学習記録件数は、現在状態を送る教科ではその要約件数を優先し、未対応の教科ではEvent明細の論理件数を表示します。Snapshotの集計値は加算しません。</p>
 <div id="devices"></div>
 </section>
 <section class="card">
