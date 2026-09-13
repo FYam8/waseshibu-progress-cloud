@@ -22,3 +22,18 @@ test('dashboard exposes nickname set/change/clear flow', () => {
 test('nickname worker is the configured entry point', () => {
   assert.match(wrangler, /"main": "src\/indexV8\.js"/);
 });
+
+test('nickname update reuses Access auth without scanning dashboard history', () => {
+  const start = worker.indexOf('async function requireDashboardAccess');
+  const end = worker.indexOf('\n}\n\nexport default', start);
+  const authHelper = worker.slice(start, end);
+  assert.match(authHelper, /u\.pathname='\/admin'/);
+  assert.doesNotMatch(authHelper, /admin\/api\/summary|dashboard-summary/);
+});
+
+test('nickname must be explicitly supplied while empty string remains the clear operation', () => {
+  assert.match(worker, /if\(typeof v!==['"]string['"]\)return null/);
+  assert.match(worker, /const value=v\.trim\(\)/);
+  assert.match(worker, /nickname===null/);
+  assert.match(worker, /nickname\|\|null/);
+});
