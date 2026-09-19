@@ -15,7 +15,7 @@ export function dashboardHtml(nonce){
 <div id="message" class="notice">読み込み中…</div>
 <section class="card">
 <h2>登録端末ごとのCloud同期済み学習進捗</h2>
-<p class="notice">この画面にはCloudへ同期済みの履歴だけを表示します。端末内にのみ存在する未同期履歴は含みません。学習記録件数は、現在状態を送る教科ではその要約件数を優先し、未対応の教科ではEvent明細の論理件数を表示します。Snapshotの集計値は加算しません。端末ごとにNicknameを付けると、自分の端末を判別しやすくなります。</p>
+<p class="notice">この画面にはCloudへ同期済みの履歴だけを表示します。端末内にのみ存在する未同期履歴は含みません。学習記録件数は、現在状態を送る教科ではその要約件数を優先し、未対応の教科ではEvent明細の論理件数を表示します。Snapshotの集計値は加算しません。端末ごとにNicknameを付けると、自分の端末を判別しやすくなります。IPは各端末が最後にCloudflareへ接続した際の送信元を表示します。</p>
 <div id="devices"></div>
 </section>
 <section class="card">
@@ -56,7 +56,7 @@ function deviceHtml(d){
   const identity=d.nickname?'<div class="nickname">'+esc(d.nickname)+'</div><div class="code">'+esc(d.deviceCode||'NO-CODE')+'</div>':'<div class="code">'+esc(d.deviceCode||'NO-CODE')+'</div><div class="meta">Nickname未設定</div>';
   return '<div class="device" data-id="'+esc(d.registrationId)+'" data-nickname="'+esc(d.nickname||'')+'">'+
     '<div class="deviceHead"><div>'+identity+'<div class="meta">'+esc(deviceMeta)+'</div></div><span class="status">'+esc(statusLabel(d.status))+'</span></div>'+
-    '<div class="small">最終アクセス '+esc(when(d.lastSeenAt))+' ・ Cloud学習記録 '+Number(d.eventCount||0)+'件'+(d.productionFrom?' ・ production開始 '+esc(when(d.productionFrom)):'')+'</div>'+
+    '<div class="small">最終アクセス '+esc(when(d.lastSeenAt))+' ・ IP '+esc(d.lastIp||'未取得')+' ・ Cloud学習記録 '+Number(d.eventCount||0)+'件'+(d.productionFrom?' ・ production開始 '+esc(when(d.productionFrom)):'')+'</div>'+
     '<div class="apps">'+(apps.length?apps.map(appHtml).join(''):'<p class="empty">Cloud同期済み教科データはありません。</p>')+'</div>'+
     '<div class="actions">'+
       '<button data-action="nickname">'+(d.nickname?'Nickname変更':'Nickname設定')+'</button>'+
