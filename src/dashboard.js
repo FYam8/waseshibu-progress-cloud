@@ -31,7 +31,9 @@ const $=id=>document.getElementById(id);
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function when(v){if(!v)return '—';const d=new Date(v);return Number.isNaN(d.getTime())?'—':d.toLocaleString('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});}
 function statusLabel(v){return({production:'production',unclassified:'unclassified',ignored:'ignored',revoked:'revoked'})[v]||'unclassified';}
-async function api(path,options){const r=await fetch(path,{credentials:'same-origin',headers:{'content-type':'application/json',...(options?.headers||{})},...options});const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.code||('HTTP '+r.status));return d;}
+const ERROR_MESSAGES={access_required:'認証セッションが切れています。画面を再読み込みしてログインし直してください。',access_invalid:'認証情報を確認できませんでした。画面を再読み込みしても直らない場合は管理者に連絡してください。',dashboard_not_configured:'管理画面の認証設定が未完了です。',dashboard_error:'進捗データの集計に失敗しました。時間をおいて再読み込みしてください。'};
+function errorMessage(data,status){return ERROR_MESSAGES[data?.code]||data?.code||('HTTP '+status);}
+async function api(path,options){const r=await fetch(path,{credentials:'same-origin',headers:{'content-type':'application/json',...(options?.headers||{})},...options});const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(errorMessage(d,r.status));return d;}
 function examText(exam){
   const hasScore=exam&&exam.score!=null&&Number.isFinite(Number(exam.score));if(!hasScore)return '—';
   const hasMax=exam.maxScore!=null&&Number.isFinite(Number(exam.maxScore));

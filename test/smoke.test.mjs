@@ -76,9 +76,10 @@ test('event quota checks and inserts stay in one Durable Object turn',()=>{
 test('admin dashboard is Access-protected and never exposes ADMIN_SECRET',()=>{
   assert.match(dashboardWorker,/cf-access-jwt-assertion/i);
   assert.match(dashboardWorker,/RSASSA-PKCS1-v1_5/);
-  assert.match(dashboardWorker,/ACCESS_TEAM_DOMAIN/);
-  assert.match(dashboardWorker,/ACCESS_AUD/);
-  assert.match(dashboardWorker,/dashboard_not_configured/);
+  assert.match(dashboardWorker,/ACCESS_CONFIG\.teamDomain/);
+  assert.match(dashboardWorker,/ACCESS_CONFIG\.audience/);
+  assert.doesNotMatch(dashboardWorker,/env\.ACCESS_TEAM_DOMAIN|env\.ACCESS_AUD/);
+  assert.match(dashboardWorker,/access_validation_failed/);
   assert.doesNotMatch(dashboardUi,/ADMIN_SECRET|x-admin-secret/i);
 });
 
