@@ -47,7 +47,7 @@ npx wrangler login
 npm run deploy
 ```
 
-Secrets remain configured on the existing Worker and are not stored in this repository. Required/optional Worker secrets include `ADMIN_SECRET`, `ACCESS_TEAM_DOMAIN`, `ACCESS_AUD`, and optionally `ACCESS_ALLOWED_EMAILS`.
+Secrets remain configured on the existing Worker and are not stored in this repository. Required/optional Worker secrets include `ADMIN_SECRET` and optionally `ACCESS_ALLOWED_EMAILS`. The Cloudflare Access team domain and Audience ID are public identifiers and are versioned in `src/accessConfig.js`; do not move them back to secrets, because hidden values can drift from the Access application without review.
 
 ## Safety invariants
 
@@ -63,3 +63,11 @@ Secrets remain configured on the existing Worker and are not stored in this repo
 ## Repository ownership
 
 Cloud backend changes belong in this repository. Subject repositories should only contain their frontend integration/client code and subject-specific mapping to the shared progress contract.
+
+## Admin recovery and observability
+
+- Worker invocation logs are enabled and persisted with query strings redacted.
+- Access validation failures emit structured `access_validation_failed` entries with a reason, path, Ray ID, and no JWT or email.
+- Dashboard request failures emit structured `dashboard_request_failed` entries.
+- If the Access application is recreated, update `src/accessConfig.js` in the same change as the Access configuration and run `npm test` before deploying.
+- A healthy unauthenticated `/admin` request redirects to `https://fyam8.cloudflareaccess.com/`; `/health` remains public for uptime checks.
