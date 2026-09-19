@@ -14,12 +14,30 @@
   "migrations": [
     {
       "tag": "v1",
-      "new_sqlite_classes": ["HouseholdProgress"]
+      "new_sqlite_classes": [
+        "HouseholdProgress"
+      ]
     }
   ],
   "vars": {
     "HOUSEHOLD_OBJECT_NAME": "family-main",
     "ALLOWED_ORIGINS": "https://fyam8.github.io",
     "ANONYMOUS_REGISTRATION_ENABLED": "1"
+  },
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1,
+    "logs": {
+      "enabled": true,
+      "head_sampling_rate": 1,
+      "invocation_logs": true,
+      "persist": true
+    },
+    "traces": {
+      "enabled": true,
+      "head_sampling_rate": 0.05,
+      "persist": true
+    },
+    "redact_query_string": true
   }
 }
