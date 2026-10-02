@@ -12,5 +12,6 @@ test('from-now production does not formalize cumulative current-state rows',()=>
 
 test('device view still applies current state regardless of formal boundary',()=>{
   assert.match(worker,/for\(const device of data\.devices\|\|\[\]\)/);
-  assert.match(worker,/applyCurrentState\(app,currentRows\(latest,device\.registrationId,app\.appId\)\)/);
+  assert.match(worker,/const rows=currentRows\(latest,device\.registrationId,app\.appId\)/);
+  assert.match(worker,/applyCurrentState\(app,rows\)/);
 });

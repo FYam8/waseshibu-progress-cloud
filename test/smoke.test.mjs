@@ -128,7 +128,7 @@ test('current-state overlay updates device state and rebuilds formal state per p
   assert.match(currentStateWorker,/state:latest-exam/);
   assert.match(currentStateWorker,/state:year:/);
   assert.match(currentStateWorker,/for\(const device of data\.devices\|\|\[\]\)/);
-  assert.match(currentStateWorker,/applyCurrentState\(app,currentRows/);
+  assert.match(currentStateWorker,/applyCurrentState\(app,rows\)/);
   assert.match(currentStateWorker,/device\.eventCount=.*recordCount/);
   assert.match(currentStateWorker,/SELECT id,status,production_from,revoked_at FROM registrations/);
   assert.match(currentStateWorker,/productionRegistrations=registrations\.filter/);

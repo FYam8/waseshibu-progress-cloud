@@ -7,15 +7,16 @@ function jsonResponse(data,status=200,headers={}){
   return new Response(JSON.stringify(data),{status,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store',...headers}});
 }
 function safePayload(value){try{return JSON.parse(value||'{}')}catch{return{}}}
-function blankApp(appId){const cfg=APP_CONFIG[appId];return{appId,label:cfg.label,lastLearningAt:null,latestExam:null,recordCount:0,years:{},progressLabel:null};}
+function blankApp(appId){const cfg=APP_CONFIG[appId];return{appId,label:cfg.label,lastLearningAt:null,latestExam:null,recordCount:0,years:{},progressLabel:null,hasSyncedProgress:false,hasLearningRecords:false};}
 function appSet(){return Object.fromEntries(APP_IDS.map(id=>[id,blankApp(id)]));}
 function currentRows(rows,registrationId,appId,from=null){
   return rows.filter(row=>String(row.registration_id)===String(registrationId)&&String(row.app_id)===String(appId)&&(!from||String(row.occurred_at)>=String(from)));
 }
 function isCurrentStateRow(row){return String(row?.source_record_id||'').startsWith('state:');}
 function applyGenericEvent(app,row){
+  app.hasSyncedProgress=true;app.hasLearningRecords=true;
   app.recordCount++;
-  if(!app.lastLearningAt||String(row.occurred_at)>String(app.lastLearningAt))app.lastLearningAt=String(row.occurred_at);
+  if(row.payload?.clockUnknown!==true&&Date.parse(row.occurred_at)>0&&(!app.lastLearningAt||String(row.occurred_at)>String(app.lastLearningAt)))app.lastLearningAt=String(row.occurred_at);
   const year=String(row.payload?.year||'');
   if(APP_CONFIG[app.appId].supportsYears&&/^20\d{2}$/.test(year)&&!app.years[year])app.years[year]='started';
   if((row.event_type==='exam_completed'||row.event_type==='year_completed')&&APP_CONFIG[app.appId].supportsYears&&/^20\d{2}$/.test(year))app.years[year]='done';
@@ -24,15 +25,19 @@ function applyGenericEvent(app,row){
   }
 }
 function applySnapshot(app,p){
+  app.hasSyncedProgress=true;
+  app.hasLearningRecords=app.hasLearningRecords||Number(p.eventCount)>0;
   if(APP_CONFIG[app.appId].supportsYears)for(const [year,count] of Object.entries(p.eventsByYear||{})){if(Number(count)>0&&!app.years[year])app.years[year]='started';}
   if(!app.progressLabel&&typeof p.progressLabel==='string')app.progressLabel=p.progressLabel;
 }
 function applyCurrentState(app,current){
+  if(current.length)app.hasSyncedProgress=true;
   let applied=false;
   const summary=current.find(row=>String(row.source_record_id)==='state:summary');
   if(summary&&Number.isFinite(Number(summary.payload?.total))){
     const total=Math.max(0,Math.floor(Number(summary.payload.total)));
     app.recordCount=total;
+    app.hasLearningRecords=total>0;
     if(total===0){
       app.lastLearningAt=null;
     }else{
@@ -68,6 +73,8 @@ function applyCurrentState(app,current){
   return applied;
 }
 function mergeFormalState(target,part){
+  target.hasSyncedProgress=target.hasSyncedProgress||part.hasSyncedProgress;
+  target.hasLearningRecords=target.hasLearningRecords||part.hasLearningRecords;
   mergeProgressSummary(target,part);
   target.recordCount+=Number(part.recordCount||0);
   if(part.lastLearningAt&&(!target.lastLearningAt||String(part.lastLearningAt)>String(target.lastLearningAt)))target.lastLearningAt=part.lastLearningAt;
@@ -101,8 +108,16 @@ export class HouseholdProgress extends BaseHouseholdProgress{
         latest.push({...row,payload:safePayload(row.payload_json)});
       }
 
+      const snapshotRows=this.sql.exec(`SELECT registration_id,app_id,payload_json FROM snapshots`).toArray();
       for(const device of data.devices||[]){
-        for(const app of device.apps||[])applyCurrentState(app,currentRows(latest,device.registrationId,app.appId));
+        for(const app of device.apps||[]){
+          const rows=currentRows(latest,device.registrationId,app.appId);
+          const snapshot=snapshotRows.find(row=>String(row.registration_id)===String(device.registrationId)&&String(row.app_id)===String(app.appId));
+          app.hasSyncedProgress=rows.length>0||Boolean(snapshot);
+          app.hasLearningRecords=Number(app.recordCount)>0||Number(safePayload(snapshot?.payload_json).eventCount)>0;
+          if(rows.length&&rows.every(row=>row.payload?.clockUnknown===true||!(Date.parse(row.occurred_at)>0)))app.lastLearningAt=null;
+          applyCurrentState(app,rows);
+        }
         device.eventCount=(device.apps||[]).reduce((n,app)=>n+Number(app.recordCount||0),0);
       }
 
@@ -120,7 +135,6 @@ export class HouseholdProgress extends BaseHouseholdProgress{
         if(reg.production_from&&isCurrentStateRow(row))continue;
         applyGenericEvent(app,row);
       }
-      const snapshotRows=this.sql.exec(`SELECT registration_id,app_id,payload_json FROM snapshots`).toArray();
       for(const row of snapshotRows){
         const reg=registrationMap.get(String(row.registration_id));
         const apps=perRegistration.get(String(row.registration_id));

@@ -6,8 +6,11 @@ export function createProgressFormatter(examDefinitions){
     const label=examDefinitions.find(x=>x.id===exam.examId)?.label||exam.examId||'';
     return label+' '+exam.correct+' / '+exam.total+'問・参考正答率 '+Math.round(exam.correct/exam.total*100)+'%';
   }
-  function today(lastLearningAt,now=new Date()){
-    if(!lastLearningAt)return '未同期／学習日時不明';
+  function today(lastLearningAt,now=new Date(),evidence={}){
+    if(!lastLearningAt||Date.parse(lastLearningAt)<=0){
+      if(evidence.hasLearningRecords||Number(evidence.recordCount)>0)return '学習日時不明';
+      return evidence.hasSyncedProgress?'今日の記録なし':'未同期';
+    }
     const at=new Date(lastLearningAt);
     if(!Number.isFinite(at.getTime())||at>now)return '学習日時を確認';
     return at.getFullYear()===now.getFullYear()&&at.getMonth()===now.getMonth()&&at.getDate()===now.getDate()?'✅ 今日':'今日の記録なし';
