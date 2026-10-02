@@ -1,3 +1,4 @@
+import { applyProgressSummary, mergeProgressSummary } from './progressContract.js';
 import { SCHOOL_PROFILE } from './deploymentProfile.js';
 import baseWorker, { HouseholdProgress as BaseHouseholdProgress } from './indexV5.js';
 import { APP_CONFIG, APP_IDS } from './platformConfig.js';
@@ -36,7 +37,7 @@ function applyCurrentState(app,current){
       app.lastLearningAt=null;
     }else{
       const reported=summary.payload?.lastLearningAt;
-      app.lastLearningAt=typeof reported==='string'&&Number.isFinite(Date.parse(reported))&&Date.parse(reported)>0?reported:String(summary.occurred_at);
+      app.lastLearningAt=typeof reported==='string'&&Number.isFinite(Date.parse(reported))&&Date.parse(reported)>0?reported:summary.payload?.progressVersion===2?null:String(summary.occurred_at);
     }
     const kind=String(summary.payload?.kind||'');
     const target=Object.hasOwn(SCHOOL_PROFILE.targets,kind)?SCHOOL_PROFILE.targets[kind]:null;
@@ -63,9 +64,11 @@ function applyCurrentState(app,current){
     }
     app.years=years;applied=true;
   }
+  applyProgressSummary(app,current,SCHOOL_PROFILE);
   return applied;
 }
 function mergeFormalState(target,part){
+  mergeProgressSummary(target,part);
   target.recordCount+=Number(part.recordCount||0);
   if(part.lastLearningAt&&(!target.lastLearningAt||String(part.lastLearningAt)>String(target.lastLearningAt)))target.lastLearningAt=part.lastLearningAt;
   if(part.latestExam&&(!target.latestExam||String(part.latestExam.occurredAt)>String(target.latestExam.occurredAt)))target.latestExam=part.latestExam;

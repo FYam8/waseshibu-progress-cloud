@@ -1,12 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import { applyProgressSummary, mergeProgressSummary } from '../src/progressContract.js';
 import { SCHOOL_PROFILE } from '../src/deploymentProfile.js';
 
 // Execute the existing projection functions without instantiating a Durable Object.
 const source=fs.readFileSync(new URL('../src/indexV6.js',import.meta.url),'utf8');
 const projection=source.slice(source.indexOf('function applyCurrentState('),source.indexOf('export default baseWorker;'));
-const {applyCurrentState,mergeFormalState}=new Function('SCHOOL_PROFILE',projection+';return {applyCurrentState,mergeFormalState};')(SCHOOL_PROFILE);
+const {applyCurrentState,mergeFormalState}=new Function('SCHOOL_PROFILE','applyProgressSummary','mergeProgressSummary',projection+';return {applyCurrentState,mergeFormalState};')(SCHOOL_PROFILE,applyProgressSummary,mergeProgressSummary);
 const summary=kind=>[{source_record_id:'state:summary',occurred_at:'2026-10-02T10:00:00.000Z',payload:{total:3,kind,lastLearningAt:'2026-10-01T10:00:00.000Z'}}];
 
 test('all existing targets override stale baseline labels without changing learning timestamps',()=>{

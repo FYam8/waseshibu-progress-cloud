@@ -25,6 +25,6 @@ test('year cards use a consistent newest-to-oldest order',()=>{
 test('synced exam subjects can show all unstarted years without labeling unsynced apps',()=>{
   assert.match(dashboard,/YEAR_APPS=new Set\(\["kokugo","math","english"\]\)/);
   assert.match(dashboard,/const hasYearState=Object\.keys\(states\)\.length>0\|\|Number\(app\.recordCount\|\|0\)>0\|\|!!app\.lastLearningAt\|\|!!app\.latestExam\|\|!!app\.progressLabel/);
-  assert.match(dashboard,/YEAR_APPS\.has\(String\(app\.appId\)\)&&hasYearState/);
+  assert.match(dashboard,/YEAR_APPS\.has\(String\(app\.appId\)\)&&hasYearState&&!app\.exams/);
   assert.match(dashboard,/s==='done'\?'✅ 完了':s==='started'\?'▶ 途中':'－ 未着手'/);
 });

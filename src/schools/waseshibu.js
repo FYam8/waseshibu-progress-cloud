@@ -11,6 +11,7 @@ export const SCHOOL_PROFILE = Object.freeze({
   deviceCodePrefix: 'WS-',
   legacyAppId: 'kokugo',
   allowedOrigin: 'https://fyam8.github.io',
+  exams: Object.freeze([2026,2025,2024,2023,2022,2021,2020,2019].map(year=>Object.freeze({id:String(year),label:String(year)+'年',year}))),
   years: Object.freeze([2026,2025,2024,2023,2022,2021,2020,2019]),
   targets: Object.freeze({
     'target-60': '目標 60点',
@@ -20,7 +21,12 @@ export const SCHOOL_PROFILE = Object.freeze({
   apps: Object.freeze({
     kokugo:Object.freeze({label:'国語',supportsExamScore:true,supportsYears:true}),
     math:Object.freeze({label:'数学',supportsExamScore:true,supportsYears:true}),
-    english:Object.freeze({label:'英語',supportsExamScore:true,supportsYears:true}),
+    english:Object.freeze({label:'英語',supportsExamScore:true,supportsYears:true,legacyMetrics:Object.freeze({
+      weaknessCount:Object.freeze({source:'state:weakness',field:'total',subtract:'correct'}),
+      masteredCount:Object.freeze({source:'state:weakness',field:'correct'}),
+      retentionPending:Object.freeze({source:'state:retention',field:'total'}),
+      practiceCount:Object.freeze({source:'state:drill',field:'total'}),
+    })}),
     listening:Object.freeze({label:'リスニング',supportsExamScore:false,supportsYears:false}),
     vocab:Object.freeze({label:'英単語',supportsExamScore:false,supportsYears:false}),
   }),

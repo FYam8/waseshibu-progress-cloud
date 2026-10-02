@@ -1,3 +1,4 @@
+import { createProgressFormatter } from './dashboardFormatting.js';
 import { SCHOOL_PROFILE } from './deploymentProfile.js';
 export function dashboardHtml(nonce){
   const years=SCHOOL_PROFILE.years;
@@ -17,6 +18,9 @@ export function dashboardHtml(nonce){
 <h1>${title}</h1>
 <div id="message" class="notice">読み込み中…</div>
 <section class="card">
+<h2>今日の学習状況</h2>
+<p class="notice">production端末の進捗を、この画面の端末時刻で判定します。Cloud未同期の学習は反映されないため、「今日の記録なし」は未実施の断定ではありません。</p>
+<div id="todayApps" class="apps"></div>
 <h2>登録端末ごとのCloud同期済み学習進捗</h2>
 <p class="notice">この画面にはCloudへ同期済みの履歴だけを表示します。端末内にのみ存在する未同期履歴は含みません。学習記録件数は、現在状態を送る教科ではその要約件数を優先し、未対応の教科ではEvent明細の論理件数を表示します。Snapshotの集計値は加算しません。端末ごとにNicknameを付けると、自分の端末を判別しやすくなります。IPは各端末が最後にCloudflareへ接続した際の送信元を表示します。</p>
 <div id="devices"></div>
@@ -29,6 +33,7 @@ export function dashboardHtml(nonce){
 </main>
 <script nonce="${nonce}">
 const YEARS=${JSON.stringify(years)};
+const progressUI=(${createProgressFormatter.toString()})(${JSON.stringify(SCHOOL_PROFILE.exams||[]).replaceAll('<','\\u003c')});
 const YEAR_APPS=new Set(${JSON.stringify(yearApps)});
 const $=id=>document.getElementById(id);
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -38,19 +43,20 @@ const ERROR_MESSAGES={access_required:'認証セッションが切れていま�
 function errorMessage(data,status){return ERROR_MESSAGES[data?.code]||data?.code||('HTTP '+status);}
 async function api(path,options){const r=await fetch(path,{credentials:'same-origin',headers:{'content-type':'application/json',...(options?.headers||{})},...options});const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(errorMessage(d,r.status));return d;}
 function examText(exam){
+  if(exam?.referenceAccuracy!==undefined)return progressUI.referenceExam(exam);
   const hasScore=exam&&exam.score!=null&&Number.isFinite(Number(exam.score));if(!hasScore)return '—';
   const hasMax=exam.maxScore!=null&&Number.isFinite(Number(exam.maxScore));
-  const year=/^20\d{2}$/.test(String(exam.year||''))?String(exam.year)+'年 ':'';
+  const year=/^20\\d{2}$/.test(String(exam.year||''))?String(exam.year)+'年 ':'';
   const kind=({'first-look':'初見',reference:'参考',first:'初回',retake:'再受験'})[String(exam.kind||'')]||'';
   return year+Number(exam.score)+(hasMax?'/'+Number(exam.maxScore):'')+'点'+(kind?'（'+kind+'）':'');
 }
 function appHtml(app){
   const states=app.years||{};
   const hasYearState=Object.keys(states).length>0||Number(app.recordCount||0)>0||!!app.lastLearningAt||!!app.latestExam||!!app.progressLabel;
-  const years=YEAR_APPS.has(String(app.appId))&&hasYearState?'<div class="years">'+YEARS.map(y=>{const s=states[String(y)]||'notstarted';const label=s==='done'?'✅ 完了':s==='started'?'▶ 途中':'－ 未着手';return '<div class="year '+s+'"><b>'+y+'</b><br>'+label+'</div>';}).join('')+'</div>':'';
+  const years=YEAR_APPS.has(String(app.appId))&&hasYearState&&!app.exams?'<div class="years">'+YEARS.map(y=>{const s=states[String(y)]||'notstarted';const label=s==='done'?'✅ 完了':s==='started'?'▶ 途中':'－ 未着手';return '<div class="year '+s+'"><b>'+y+'</b><br>'+label+'</div>';}).join('')+'</div>':'';
   const progress=app.progressLabel?'<div class="progressLabel">'+esc(app.progressLabel)+'</div>':'';
   return '<div class="appCard"><div class="appTitle"><h3>'+esc(app.label||app.appId)+'</h3><span class="small">'+esc(app.appId)+'</span></div>'+
-    '<div class="summary"><div class="metric">最終学習<b>'+esc(when(app.lastLearningAt))+'</b></div><div class="metric">直近過去問<b>'+esc(examText(app.latestExam))+'</b></div><div class="metric">学習記録<b>'+Number(app.recordCount||0)+'件</b></div></div>'+years+progress+'</div>';
+    '<div class="summary"><div class="metric">最終学習<b>'+esc(when(app.lastLearningAt))+'</b></div><div class="metric">直近過去問<b>'+esc(examText(app.latestExam))+'</b></div><div class="metric">学習記録<b>'+Number(app.recordCount||0)+'件</b></div></div>'+years+progress+progressUI.extra(app)+'</div>';
 }
 function deviceHtml(d){
   const disabled=d.status==='revoked';
@@ -74,6 +80,7 @@ function render(data){
   const devices=data.devices||[];
   $('devices').innerHTML=devices.length?devices.map(deviceHtml).join(''):'<p class="empty">登録端末はまだありません。</p>';
   const formalApps=data.apps||[];
+  $('todayApps').innerHTML=formalApps.map(app=>'<div class="appCard"><b>'+esc(app.label||app.appId)+'</b> '+esc(progressUI.today(app.lastLearningAt))+'</div>').join('');
   $('formalApps').innerHTML=formalApps.length?formalApps.map(appHtml).join(''):'<p class="empty">正式進捗はまだありません。</p>';
 }
 async function load(){try{render(await api('/admin/api/summary'));}catch(e){$('message').textContent='読み込み失敗: '+e.message;$('message').className='notice error';}}

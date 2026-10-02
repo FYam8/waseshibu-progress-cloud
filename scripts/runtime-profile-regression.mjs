@@ -33,6 +33,20 @@ try{
   r=await call('/v1/events/batch','POST',{events:[{...event,appId:'other-school'}]},learner);
   assert.equal(r.status,400);assert.equal((await r.json()).rejected[0].code,'app_not_allowed');
   r=await call('/v1/progress/snapshot','PUT',{appId:'english',generation:1,payload:{baseline:true,eventCount:1,eventsByYear:{'2024':1},capturedAt:event.occurredAt}},learner);assert.equal(r.status,200);
+  const v2={...event,eventId:'english:exam-state:r1',sourceRecordId:'state:exam:2024',payload:{progressVersion:2,examId:'2024',year:'2024',examStatus:'done',completed:true,correct:23,total:30,referenceAccuracy:77}};
+  const latest={...v2,eventId:'english:latest-state:r1',sourceRecordId:'state:latest-exam'};
+  const summary={...event,eventId:'english:summary-state:r1',sourceRecordId:'state:summary',eventType:'progress_state',payload:{progressVersion:2,total:4,lastLearningAt:event.occurredAt,weaknessCount:3,retentionPending:2}};
+  r=await call('/v1/events/batch','POST',{events:[v2,latest,summary]},learner);assert.equal(r.status,200);assert.equal((await r.json()).accepted.length,3);
+  const namespace=await mf.getDurableObjectNamespace('PROGRESS');
+  const stub=namespace.get(namespace.idFromName(p.objectName));
+  const dashboard=async()=> (await stub.fetch('https://internal/internal/admin/dashboard-summary',{method:'POST',headers:{'content-type':'application/json'},body:'{}'})).json();
+  let view=await dashboard(),english=view.devices[0].apps.find(x=>x.appId==='english');
+  assert.equal(english.exams['2024'].status,'done');assert.equal(english.latestExam.score,undefined);assert.equal(english.latestExam.correct,23);assert.equal(english.progressMetrics.weaknessCount,3);
+  await call('/v1/admin/registrations/classify','POST',{registrationId,status:'production',historyMode:'all'},admin);
+  view=await dashboard();assert.equal(view.apps.find(x=>x.appId==='english').latestExam.correct,23);
+  await call('/v1/admin/registrations/classify','POST',{registrationId,status:'production',historyMode:'from_now'},admin);
+  view=await dashboard();assert.equal(view.apps.find(x=>x.appId==='english').recordCount,0);assert.equal(view.apps.find(x=>x.appId==='english').progressMetrics,undefined);
+  r=await call('/v1/events/batch','POST',{events:[{...v2,payload:{...v2.payload,examId:'unconfigured-exam'}}]},learner);assert.equal(r.status,400);assert.equal((await r.json()).rejected[0].code,'exam_not_allowed');
   for(const status of ['production','ignored']){
     r=await call('/v1/admin/registrations/classify','POST',{registrationId,status},admin);assert.equal(r.status,200);
     assert.equal((await (await call('/v1/control','GET',undefined,learner)).json()).status,status);
@@ -40,5 +54,5 @@ try{
   r=await call('/v1/events/batch','POST',{events:[{...event,eventId:'english:synthetic:r2',revision:2}]},learner);assert.equal(r.status,403);
   r=await call('/v1/admin/registrations/revoke','POST',{registrationId},admin);assert.equal(r.status,200);
   assert.equal((await call('/v1/control','GET',undefined,learner)).status,401);
-  console.log('Local Worker runtime PASS: health, registration, Access deny, event, duplicate, payload allowlist, school app rejection, snapshot, classify, ignored, revoke');
+  console.log('Local Worker runtime PASS: health, registration, Access deny, event, duplicate, payload allowlist, school app rejection, snapshot, v2 exam/metrics, from-now boundary, classify, ignored, revoke');
 }finally{await mf.dispose();}

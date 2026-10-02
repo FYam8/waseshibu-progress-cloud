@@ -1,4 +1,4 @@
-# School profile extraction — first upstream change
+# Shared progress platform — upstream candidate
 
 ## Status and scope
 
@@ -12,7 +12,7 @@ The shared Worker layers now read school configuration through
 `src/deploymentProfile.js`. WaseShibu's profile owns app definitions, legacy
 app ID, branding, years, target labels, new-device prefix, default origin,
 Worker/object identity and Access audience. Authentication logic, quotas,
-payload allowlists, registration handling, event revisions and all SQL remain
+existing v1 payload rules, Worker registration handling, event revisions and all SQL remain
 unchanged. Existing env overrides retain their original behavior. The build
 check requires the versioned deployment config to match the profile.
 
@@ -45,8 +45,9 @@ they must not modify the vendored shared code. No consumer lock is issued yet.
 
 ## Validation for this PR
 
-- Existing static regressions plus generated-dashboard SHA parity against the
-  baseline. Only equivalent quote serialization of the year-app Set is normalized.
+- Existing static regressions and execution of the generated dashboard script.
+  The new display intentionally changes HTML. A template-literal regex escaping
+  bug that hid legacy exam years is fixed and covered by an assertion.
 - Target projection behavior, including all 60/70/75 labels, unknown/inherited
   property names, mixed targets, record counts and zero-count reset semantics.
 - Deployment identity consistency and shared-file hash verification.
@@ -56,7 +57,31 @@ they must not modify the vendored shared code. No consumer lock is issued yet.
   payload keys rejected, snapshot, production/ignored classification and revoke.
 - These checks are not the requested full browser regression or CLEAN 1/CLEAN 2.
 
-## Required next upstream work (before a Rikkyo consumer)
+## Candidate additions (not production-verified)
+
+The additive v2 summary contract validates configured exam IDs, sessions, bounded
+counts and reference accuracy. Unofficial results cannot carry points fields.
+The dashboard adds today status, metrics and per-exam status. Missing v2 learning
+timestamps stay unknown rather than being replaced with the sync timestamp.
+Legacy English records supply metrics without rewriting stored data.
+
+`src/client/progress-transport.js` is extracted from WaseShibu English commit
+`d0e3fcdab95ddfe83ddb00409efa879e889df0ca`; its English integration is a separate
+PR. The DB version, stores and existing credentials are preserved. Endpoint and
+school scope prevent cross-deployment credential use; legacy adoption requires
+the explicit legacy endpoint. Other WaseShibu clients remain unchanged.
+
+IndexedDB tests cover four concurrent clients sharing one registration seed,
+timeout/5xx/partial/retryable acknowledgements, ignored/revoked states, revision
+persistence, deadletter, raw-field refusal, legacy adoption and school isolation.
+The isolated Worker runtime also exercises v2 validation and Admin projection.
+These automated checks are not a substitute for the required full browser QA.
+
+## Upstream roadmap (before a Rikkyo consumer)
+
+Items 1 and 2 below have candidate implementations as described above; production
+verification and complete cross-subject QA are still pending.
+
 
 1. Add generic exam identity/summary contract support (`examId`, session and
    bounded progress counts) and school-configured projections/rendering.
