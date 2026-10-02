@@ -1,17 +1,20 @@
+import { SCHOOL_PROFILE } from './deploymentProfile.js';
 export function dashboardHtml(nonce){
-  const years=[2026,2025,2024,2023,2022,2021,2020,2019];
+  const years=SCHOOL_PROFILE.years;
+  const title=String(SCHOOL_PROFILE.adminTitle).replace(/[&<>\"\']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[c]));
+  const yearApps=Object.entries(SCHOOL_PROFILE.apps).filter(([,app])=>app.supportsYears).map(([id])=>id);
   return `<!doctype html>
 <html lang="ja">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>WaseShibu Progress Admin</title>
+<title>${title}</title>
 <style nonce="${nonce}">
 :root{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#171717;background:#f6f7f8}*{box-sizing:border-box}body{margin:0}main{max-width:980px;margin:0 auto;padding:20px 14px 48px}.card{background:#fff;border:1px solid #ddd;border-radius:12px;padding:16px;margin:12px 0;box-shadow:0 1px 2px rgba(0,0,0,.04)}h1{font-size:22px;margin:4px 0 14px}h2{font-size:17px;margin:0 0 12px}.device{border:1px solid #ddd;border-radius:12px;padding:14px;margin:12px 0;background:#fff}.deviceHead{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}.nickname{font-weight:800;font-size:18px;line-height:1.3}.code{font-weight:700;font-size:14px;color:#555;margin-top:2px}.meta,.small{font-size:13px;color:#666;margin-top:3px}.status{font-size:12px;border:1px solid #ccc;border-radius:999px;padding:3px 8px;white-space:nowrap}.apps{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:12px}.appCard{border:1px solid #ddd;border-radius:10px;padding:12px}.appTitle{display:flex;justify-content:space-between;gap:8px;align-items:center}.appTitle h3{font-size:16px;margin:0}.summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;margin-top:9px}.metric{background:#f7f7f7;border-radius:8px;padding:8px;font-size:12px}.metric b{display:block;font-size:16px;margin-top:3px}.years{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin-top:9px}.year{border:1px solid #ddd;border-radius:7px;padding:6px;text-align:center;font-size:12px}.done{background:#ecf8ef;border-color:#a8d7b1}.started{background:#fff8e8;border-color:#e9c971}.notstarted{color:#777}.progressLabel{font-size:13px;color:#555;margin-top:8px}.actions{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px}button{border:1px solid #bbb;background:white;border-radius:7px;padding:7px 10px;cursor:pointer}button.primary{background:#171717;color:white;border-color:#171717}button.danger{color:#a00}button:disabled{opacity:.45;cursor:default}.notice{font-size:13px;color:#666}.error{color:#a00}.empty{color:#777;font-size:14px}.formal{margin-top:8px;padding-top:8px;border-top:1px dashed #ddd}@media(max-width:700px){.apps{grid-template-columns:1fr}}@media(max-width:520px){.summary{grid-template-columns:1fr}.years{grid-template-columns:repeat(2,minmax(0,1fr))}}
 </style>
 </head>
 <body><main>
-<h1>WaseShibu Progress Admin</h1>
+<h1>${title}</h1>
 <div id="message" class="notice">読み込み中…</div>
 <section class="card">
 <h2>登録端末ごとのCloud同期済み学習進捗</h2>
@@ -26,7 +29,7 @@ export function dashboardHtml(nonce){
 </main>
 <script nonce="${nonce}">
 const YEARS=${JSON.stringify(years)};
-const YEAR_APPS=new Set(['kokugo','math','english']);
+const YEAR_APPS=new Set(${JSON.stringify(yearApps)});
 const $=id=>document.getElementById(id);
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function when(v){if(!v)return '—';const d=new Date(v);return Number.isNaN(d.getTime())?'—':d.toLocaleString('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});}

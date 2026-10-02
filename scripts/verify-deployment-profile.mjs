@@ -1,0 +1,14 @@
+import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+import { SCHOOL_PROFILE as p } from '../src/deploymentProfile.js';
+const config=JSON.parse(await readFile(new URL('../wrangler.jsonc',import.meta.url),'utf8'));
+assert.equal(config.name,p.workerName,'Worker identity must match the deployment profile');
+assert.equal(config.vars.HOUSEHOLD_OBJECT_NAME,p.objectName,'Durable Object identity mismatch');
+assert.equal(config.vars.ALLOWED_ORIGINS,p.allowedOrigin,'Origin mismatch');
+assert.deepEqual(config.durable_objects.bindings,[{name:p.bindingName,class_name:p.className}]);
+assert.deepEqual(config.migrations,[{tag:'v1',new_sqlite_classes:[p.className]}],'Existing schema migration must remain unchanged');
+assert.ok(Object.hasOwn(p.apps,p.legacyAppId));
+for(const id of Object.keys(p.apps))assert.match(id,/^[a-z][a-z0-9-]{0,79}$/);
+assert.match(p.access.audience,/^[a-f0-9]{64}$/);
+assert.match(p.access.teamDomain,/^https:\/\/[a-z0-9-]+\.cloudflareaccess\.com$/);
+console.log('Deployment profile and existing storage configuration match');

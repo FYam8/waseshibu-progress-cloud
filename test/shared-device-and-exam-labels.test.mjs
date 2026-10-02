@@ -1,9 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import { dashboardHtml } from '../src/dashboard.js';
 
 const worker=fs.readFileSync(new URL('../src/indexV7.js',import.meta.url),'utf8');
-const dashboard=fs.readFileSync(new URL('../src/dashboard.js',import.meta.url),'utf8');
+const dashboard=dashboardHtml('test-nonce');
 
 test('new device codes are subject-neutral while existing stored codes are untouched',()=>{
   assert.match(worker,/WS-/);
@@ -18,11 +19,11 @@ test('latest exam display keeps year and score validity context',()=>{
 });
 
 test('year cards use a consistent newest-to-oldest order',()=>{
-  assert.match(dashboard,/const years=\[2026,2025,2024,2023,2022,2021,2020,2019\]/);
+  assert.match(dashboard,/const YEARS=\[2026,2025,2024,2023,2022,2021,2020,2019\]/);
 });
 
 test('synced exam subjects can show all unstarted years without labeling unsynced apps',()=>{
-  assert.match(dashboard,/YEAR_APPS=new Set\(\['kokugo','math','english'\]\)/);
+  assert.match(dashboard,/YEAR_APPS=new Set\(\["kokugo","math","english"\]\)/);
   assert.match(dashboard,/const hasYearState=Object\.keys\(states\)\.length>0\|\|Number\(app\.recordCount\|\|0\)>0\|\|!!app\.lastLearningAt\|\|!!app\.latestExam\|\|!!app\.progressLabel/);
   assert.match(dashboard,/YEAR_APPS\.has\(String\(app\.appId\)\)&&hasYearState/);
   assert.match(dashboard,/s==='done'\?'✅ 完了':s==='started'\?'▶ 途中':'－ 未着手'/);

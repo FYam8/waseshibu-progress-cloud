@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
-    "test": "node --test test/*.test.mjs"
+    "test": "node scripts/verify-deployment-profile.mjs && node scripts/shared-manifest.mjs && node --test test/*.test.mjs",
+    "manifest:update": "node scripts/shared-manifest.mjs --write",
+    "test:runtime": "node scripts/runtime-profile-regression.mjs"
   },
   "devDependencies": {
     "wrangler": "^4.0.0"

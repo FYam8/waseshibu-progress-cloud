@@ -71,3 +71,12 @@ Cloud backend changes belong in this repository. Subject repositories should onl
 - Dashboard request failures emit structured `dashboard_request_failed` entries.
 - If the Access application is recreated, update `src/accessConfig.js` in the same change as the Access configuration and run `npm test` before deploying.
 - A healthy unauthenticated `/admin` request redirects to `https://fyam8.cloudflareaccess.com/`; `/health` remains public for uptime checks.
+
+## School deployment boundary
+
+School-owned values live in `src/schools/waseshibu.js`, selected through
+`src/deploymentProfile.js`. Shared Worker modules depend only on that adapter.
+`npm test` verifies deployment identity and `shared-manifest.json`; use
+`npm run manifest:update` only after reviewing a shared-code change.
+After the bundle dry-run, `npm run test:runtime` runs the local Worker regression.
+See [the staged rollout and outstanding release gates](docs/school-profile-rollout.md).
