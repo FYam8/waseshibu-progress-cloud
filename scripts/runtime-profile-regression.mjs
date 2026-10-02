@@ -2,9 +2,10 @@
 import * as simulator from 'miniflare';
 import { createHash,randomUUID } from 'node:crypto';
 import assert from 'node:assert/strict';
+import { fileURLToPath } from 'node:url';
 import { SCHOOL_PROFILE as p } from '../src/deploymentProfile.js';
 const options={
-  modules:true,scriptPath:new URL('../dist/indexV9.js',import.meta.url).pathname,
+  modules:true,scriptPath:fileURLToPath(new URL('../dist/indexV9.js',import.meta.url)),
   compatibilityDate:'2026-09-12',
   durableObjects:{PROGRESS:{className:'HouseholdProgress',useSQLite:true}},
   bindings:{HOUSEHOLD_OBJECT_NAME:p.objectName,ALLOWED_ORIGINS:p.allowedOrigin,ANONYMOUS_REGISTRATION_ENABLED:'1',ADMIN_SECRET:'local-test-only'},

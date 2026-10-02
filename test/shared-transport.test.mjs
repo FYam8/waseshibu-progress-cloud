@@ -30,9 +30,9 @@ function fixture(){
     throw new Error('unexpected endpoint');
   }
   const state={answers:{private:'DO NOT SEND'},total:()=>count};
-  function client(appId,{dbName='test-school-sync',schoolId='test-school',endpoint='https://test-school.invalid',legacyEndpoint,bad=false}={}){
+  function client(appId,{dbName='test-school-sync',schoolId='test-school',endpoint='https://test-school.invalid',legacyEndpoint,legacyDatabases,bad=false}={}){
     const ctx={indexedDB,crypto:webcrypto,TextEncoder,AbortController,Response,fetch,setTimeout,clearTimeout,setInterval,clearInterval,btoa,navigator:{userAgent:'test',onLine:true},document:{addEventListener(){},removeEventListener(){}}};ctx.window=ctx;ctx.addEventListener=()=>{};ctx.removeEventListener=()=>{};vm.createContext(ctx);vm.runInContext(source,ctx);
-    return ctx.SHARED_PROGRESS_TRANSPORT.createTransport({appId,dbName,dbVersion:7,schoolId,endpoint,legacyEndpoint,timeoutMs:5,
+    return ctx.SHARED_PROGRESS_TRANSPORT.createTransport({appId,dbName,dbVersion:7,schoolId,endpoint,legacyEndpoint,legacyDatabases,timeoutMs:5,
       loadState:()=>state,
       buildStateRecords:()=>[{sourceRecordId:'state:summary',eventType:'progress_state',occurredAt:new Date().toISOString(),payload:bad?{total:count,rawAnswer:state.answers.private}:{total:count}}],
       buildOccurrenceRecords:()=>[],occurrenceSignature:()=>String(count),
@@ -93,4 +93,35 @@ test('existing registration and pending seed survive adoption only at the declar
   await f.client('english',{legacyEndpoint:'https://test-school.invalid'}).sync();
   const after=(await f.rows('control')).filter(x=>['registration','pendingRegistration'].includes(x.key));
   assert.deepEqual(after,before);assert.equal(f.registrations.size,1);
+});
+
+const legacyDatabases=[{name:'old-sync',schoolId:'test-school',appIds:['english']}];
+test('verified legacy copy preserves identity, pending seed, outbox, seen and old database',async()=>{
+  const f=fixture();f.setMode('500');await f.client('english',{dbName:'old-sync'}).sync();
+  const old=await f.rows('control','old-sync');const queued=await f.rows('outbox','old-sync');
+  const next=f.client('english',{legacyDatabases});await next.sync();
+  assert.equal(f.registrations.size,1);
+  assert.deepEqual(await f.rows('outbox'),queued);
+  assert.deepEqual(await f.rows('seen_v2'),await f.rows('seen_v2','old-sync'));
+  assert.deepEqual(await f.rows('control','old-sync'),old,'old DB stays intact');
+  const control=await f.rows('control');assert.equal(control.find(x=>x.key==='migration:old-sync').value.verified,true);
+  assert.deepEqual(control.find(x=>x.key==='pendingRegistration'),old.find(x=>x.key==='pendingRegistration'));
+});
+test('unknown endpoint credentials are never copied or transmitted',async()=>{
+  const f=fixture(),old=f.client('english',{dbName:'old-sync'});await old.sync();
+  await old.history.setControl('deploymentScope',null);const before=f.requests.length;
+  const next=f.client('english',{legacyDatabases});await next.sync();
+  assert.equal(f.requests.length,before);assert.equal((await next.status()).migrationBlocked.reason,'unverified_legacy_endpoint');
+  assert.ok(!(await f.rows('control')).some(x=>x.key==='registration'));
+});
+test('different destination registration remains intact and blocks migration without marking completion',async()=>{
+  const f=fixture();await f.client('english',{dbName:'old-sync'}).sync();
+  const next=f.client('english');await next.history.setControl('registration',{registrationId:'another-registration',credential:'another-credential'});
+  const before=await f.rows('control');const n=f.requests.length;
+  await f.client('english',{legacyDatabases}).sync();
+  assert.equal(f.requests.length,n);
+  const after=await f.rows('control');assert.deepEqual(after.find(x=>x.key==='registration'),before.find(x=>x.key==='registration'));
+  assert.ok(!after.some(x=>x.key==='migration:old-sync'));
+  assert.ok(after.find(x=>x.key==='migrationBlocked'));
+  assert.ok((await f.rows('control','old-sync')).some(x=>x.key==='registration'));
 });

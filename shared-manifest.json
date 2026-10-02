@@ -8,7 +8,7 @@
   ],
   "files": {
     "src/accessConfig.js": "86441e106ff858c462d00fedaa5d56f7622dc6d9d6735dcfda92282a15af407d",
-    "src/client/progress-transport.js": "60e0c76ee195925bf029c23379468c4b5d6bd8fe12e81d416f93514f63a5674f",
+    "src/client/progress-transport.js": "9edfe701a45da206ad2b3da120329e5a0571828f89976bc7eb51f6bead87298d",
     "src/dashboard.js": "a72dfe79def1dc8d39e8870221f8190b9c89c4ba6893e91c38269a03bc98d674",
     "src/dashboardFormatting.js": "3c60f45364f429338b3b78e9fc5537729dbd78f1e4b9c279891b1070e92cd4e5",
     "src/indexV2.js": "00c72fc7c47bd8d1ba47161491fcf9207cfb2877412c773dd9e6ac1aa634d0c3",
