@@ -38,7 +38,10 @@ test('today distinguishes missing sync, past learning, future clocks and same-da
   const fmt=createProgressFormatter([]),now=new Date(2026,9,2,18,0);
   assert.equal(fmt.today(new Date(2026,9,2,10,0).toISOString(),now),'✅ 今日');
   assert.equal(fmt.today(new Date(2026,9,1,23,59).toISOString(),now),'今日の記録なし');
-  assert.equal(fmt.today(null,now),'未同期／学習日時不明');
+  assert.equal(fmt.today(null,now),'未同期');
+  assert.equal(fmt.today(null,now,{hasSyncedProgress:true,hasLearningRecords:true}),'学習日時不明');
+  assert.equal(fmt.today(null,now,{hasSyncedProgress:true,hasLearningRecords:false}),'今日の記録なし');
+  assert.equal(fmt.today('1970-01-01T00:00:00.000Z',now,{recordCount:2}),'学習日時不明');
   assert.equal(fmt.today(new Date(2026,9,3).toISOString(),now),'学習日時を確認');
 });
 

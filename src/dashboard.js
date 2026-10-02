@@ -80,7 +80,7 @@ function render(data){
   const devices=data.devices||[];
   $('devices').innerHTML=devices.length?devices.map(deviceHtml).join(''):'<p class="empty">登録端末はまだありません。</p>';
   const formalApps=data.apps||[];
-  $('todayApps').innerHTML=formalApps.map(app=>'<div class="appCard"><b>'+esc(app.label||app.appId)+'</b> '+esc(progressUI.today(app.lastLearningAt))+'</div>').join('');
+  $('todayApps').innerHTML=formalApps.map(app=>'<div class="appCard"><b>'+esc(app.label||app.appId)+'</b> '+esc(progressUI.today(app.lastLearningAt,new Date(),app))+'</div>').join('');
   $('formalApps').innerHTML=formalApps.length?formalApps.map(appHtml).join(''):'<p class="empty">正式進捗はまだありません。</p>';
 }
 async function load(){try{render(await api('/admin/api/summary'));}catch(e){$('message').textContent='読み込み失敗: '+e.message;$('message').className='notice error';}}
