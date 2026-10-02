@@ -1,3 +1,4 @@
+import { SCHOOL_PROFILE } from './deploymentProfile.js';
 import baseWorker, { HouseholdProgress as BaseHouseholdProgress } from './indexV7.js';
 
 function json(data,status=200,headers={}){
@@ -10,7 +11,7 @@ function cleanNickname(v){
   if(value.length>60||/[\u0000-\u001f\u007f]/.test(value))return null;
   return value;
 }
-function progressStub(env){return env.PROGRESS.getByName(String(env.HOUSEHOLD_OBJECT_NAME||'family-main'));}
+function progressStub(env){return env.PROGRESS.getByName(String(env.HOUSEHOLD_OBJECT_NAME||SCHOOL_PROFILE.objectName));}
 async function internal(env,path,body={}){
   const r=await progressStub(env).fetch(`https://internal${path}`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});
   return{response:r,data:await r.json().catch(()=>({}))};

@@ -18,3 +18,5 @@ jobs:
         run: npm test
       - name: Validate Worker bundle and Durable Object config
         run: npx wrangler deploy --dry-run --outdir dist
+      - name: Local Worker runtime regression
+        run: npm run test:runtime

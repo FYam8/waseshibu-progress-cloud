@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import { dashboardHtml } from '../src/dashboard.js';
 
 const base=fs.readFileSync(new URL('../src/indexV2.js',import.meta.url),'utf8');
 const hardening=fs.readFileSync(new URL('../src/indexV3.js',import.meta.url),'utf8');
@@ -10,8 +11,8 @@ const currentStateWorker=fs.readFileSync(new URL('../src/indexV6.js',import.meta
 const neutralWorker=fs.readFileSync(new URL('../src/indexV7.js',import.meta.url),'utf8');
 const nicknameWorker=fs.readFileSync(new URL('../src/indexV8.js',import.meta.url),'utf8');
 const ipWorker=fs.readFileSync(new URL('../src/indexV9.js',import.meta.url),'utf8');
-const platformConfig=fs.readFileSync(new URL('../src/platformConfig.js',import.meta.url),'utf8');
-const dashboardUi=fs.readFileSync(new URL('../src/dashboard.js',import.meta.url),'utf8');
+const platformConfig=fs.readFileSync(new URL('../src/schools/waseshibu.js',import.meta.url),'utf8');
+const dashboardUi=dashboardHtml('test-nonce');
 const source=`${base}\n${hardening}\n${dashboardWorker}\n${platformWorker}\n${currentStateWorker}\n${neutralWorker}\n${nicknameWorker}\n${ipWorker}`;
 const config=fs.readFileSync(new URL('../wrangler.jsonc',import.meta.url),'utf8');
 
@@ -49,7 +50,8 @@ test('state summary may report a sanitized last-learning timestamp',()=>{
 });
 
 test('kokugo backward compatibility remains in place',()=>{
-  assert.match(base,/APP_ID='kokugo'/);
+  assert.match(base,/APP_ID=SCHOOL_PROFILE.legacyAppId/);
+  assert.match(platformConfig,/legacyAppId: 'kokugo'/);
   assert.match(platformConfig,/kokugo/);
   assert.match(platformWorker,/baseWorker\.fetch/);
   assert.match(platformWorker,/BaseHouseholdProgress/);
@@ -90,7 +92,8 @@ test('dashboard exposes five-subject progress for every registered device',()=>{
   assert.match(platformWorker,/registrationId,deviceCode/);
   assert.match(platformWorker,/apps=APP_IDS\.map/);
   assert.match(platformWorker,/eventCount:apps\.reduce/);
-  assert.match(platformWorker,/platform:'WaseShibu Progress Platform'/);
+  assert.match(platformWorker,/platform:SCHOOL_PROFILE.platformLabel/);
+  assert.match(platformConfig,/platformLabel: 'WaseShibu Progress Platform'/);
   for(const label of ['国語','数学','英語','リスニング','英単語'])assert.match(platformConfig,new RegExp(label));
   assert.match(dashboardUi,/登録端末ごとのCloud同期済み学習進捗/);
   assert.match(dashboardUi,/Cloudへ同期済みの履歴だけ/);
@@ -102,7 +105,7 @@ test('dashboard keeps exam year and first-look/reference context visible',()=>{
   assert.match(dashboardUi,/first-look':'初見/);
   assert.match(dashboardUi,/reference:'参考/);
   assert.match(dashboardUi,/String\(exam\.year\)\+'年 '/);
-  assert.match(dashboardUi,/const years=\[2026,2025,2024,2023,2022,2021,2020,2019\]/);
+  assert.match(dashboardUi,/const YEARS=\[2026,2025,2024,2023,2022,2021,2020,2019\]/);
 });
 
 test('device event counts use logical event rows and do not add snapshot eventCount',()=>{
