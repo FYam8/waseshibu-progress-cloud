@@ -99,7 +99,7 @@ export class HouseholdProgress extends BaseHouseholdProgress{
       const registrations=this.sql.exec(`SELECT id,status,production_from,revoked_at FROM registrations`).toArray();
       const registrationMap=new Map(registrations.map(row=>[String(row.id),row]));
       const eventRows=this.sql.exec(`SELECT registration_id,app_id,source_record_id,revision,event_type,occurred_at,payload_json
-        FROM events ORDER BY registration_id,app_id,source_record_id,revision DESC`).toArray();
+        FROM events WHERE event_type!='answer_record' ORDER BY registration_id,app_id,source_record_id,revision DESC`).toArray();
       const latest=[];const seen=new Set();
       for(const row of eventRows){
         const key=`${row.registration_id}:${row.app_id}:${row.source_record_id}`;

@@ -20,7 +20,7 @@ test('dashboard exposes nickname set/change/clear flow', () => {
 });
 
 test('latest worker remains the configured entry point', () => {
-  assert.match(wrangler, /"main": "src\/indexV9\.js"/);
+  assert.match(wrangler, /"main": "src\/indexV10\.js"/);
 });
 
 test('nickname update reuses Access auth without scanning dashboard history', () => {

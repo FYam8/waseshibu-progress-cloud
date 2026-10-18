@@ -23,7 +23,12 @@ export function dashboardHtml(nonce){
 <div id="todayApps" class="apps"></div>
 <h2>登録端末ごとのCloud同期済み学習進捗</h2>
 <p class="notice">この画面にはCloudへ同期済みの履歴だけを表示します。端末内にのみ存在する未同期履歴は含みません。学習記録件数は、現在状態を送る教科ではその要約件数を優先し、未対応の教科ではEvent明細の論理件数を表示します。Snapshotの集計値は加算しません。端末ごとにNicknameを付けると、自分の端末を判別しやすくなります。IPは各端末が最後にCloudflareへ接続した際の送信元を表示します。</p>
-<div id="devices"></div>
+<section class="card" id="answerHistory">
+<h2>問題ごとの回答・誤答履歴</h2>
+<p class="notice">端末を選ぶと、同期済みの実際の回答と登録解答を比較できます。「誤答」は不正解・部分正解・未回答を含みます。旧履歴に残っていない答案は「記録なし」と表示します。記述式の判定根拠は採点結果であり、学習者の思考過程を断定するものではありません。</p>
+<div class="actions"><label>端末 <select id="answerDevice"></select></label><label>教科 <select id="answerApp"><option value="">全教科</option></select></label><label>判定 <select id="answerOutcome"><option value="mistakes">誤答</option><option value="all">全回答</option><option value="wrong">不正解</option><option value="partial">部分正解</option><option value="unanswered">未回答</option><option value="correct">正解</option><option value="ungraded">未判定</option></select></label><label>試験 <select id="answerExam"><option value="">全年度・日程</option></select></label><label>問題ID <input id="answerQuestion" maxlength="200" placeholder="任意・完全一致"></label><button id="answerLoad">表示・更新</button></div>
+<p id="answerMessage" class="notice">端末を選んで表示してください。</p><div id="answerRows"></div><button id="answerMore" hidden>さらに50件</button>
+</section><div id="devices"></div>
 </section>
 <section class="card">
 <h2>production端末の正式進捗（参考）</h2>
@@ -68,6 +73,7 @@ function deviceHtml(d){
     '<div class="small">最終アクセス '+esc(when(d.lastSeenAt))+' ・ IP '+esc(d.lastIp||'未取得')+' ・ Cloud学習記録 '+Number(d.eventCount||0)+'件'+(d.productionFrom?' ・ production開始 '+esc(when(d.productionFrom)):'')+'</div>'+
     '<div class="apps">'+(apps.length?apps.map(appHtml).join(''):'<p class="empty">Cloud同期済み教科データはありません。</p>')+'</div>'+
     '<div class="actions">'+
+      '<button data-action="answers">回答・誤答を見る</button>'+
       '<button data-action="nickname">'+(d.nickname?'Nickname変更':'Nickname設定')+'</button>'+
       '<button class="primary" data-action="production" '+(disabled||d.status==='production'?'disabled':'')+'>production</button>'+
       '<button data-action="ignored" '+(disabled||d.status==='ignored'?'disabled':'')+'>ignored</button>'+
@@ -78,6 +84,9 @@ function render(data){
   $('message').textContent='更新 '+new Date().toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'});
   $('message').className='notice';
   const devices=data.devices||[];
+  const chosen=$('answerDevice').value;
+  $('answerDevice').innerHTML=devices.map(d=>'<option value="'+esc(d.registrationId)+'">'+esc([d.nickname,d.deviceCode,d.osFamily,d.browserFamily].filter(Boolean).join(' / '))+'</option>').join('');
+  if(devices.some(d=>d.registrationId===chosen))$('answerDevice').value=chosen;
   $('devices').innerHTML=devices.length?devices.map(deviceHtml).join(''):'<p class="empty">登録端末はまだありません。</p>';
   const formalApps=data.apps||[];
   $('todayApps').innerHTML=formalApps.map(app=>'<div class="appCard"><b>'+esc(app.label||app.appId)+'</b> '+esc(progressUI.today(app.lastLearningAt,new Date(),app))+'</div>').join('');
@@ -87,6 +96,7 @@ async function load(){try{render(await api('/admin/api/summary'));}catch(e){$('m
 $('devices').addEventListener('click',async e=>{
   const button=e.target.closest('button[data-action]');if(!button)return;
   const row=button.closest('[data-id]'),registrationId=row?.dataset.id,action=button.dataset.action;if(!registrationId)return;
+  if(action==='answers'){$('answerDevice').value=registrationId;$('answerHistory').scrollIntoView({behavior:'smooth'});await loadAnswers();return;}
   if(action==='nickname'){
     const next=prompt('この端末のNicknameを入力してください（60文字まで）。空欄で保存するとNicknameを解除します。',row.dataset.nickname||'');
     if(next===null)return;
@@ -99,6 +109,26 @@ $('devices').addEventListener('click',async e=>{
   button.disabled=true;
   try{if(action==='revoke')await api('/admin/api/revoke',{method:'POST',body:JSON.stringify({registrationId})});else await api('/admin/api/classify',{method:'POST',body:JSON.stringify({registrationId,status:action})});await load();}catch(err){alert('更新に失敗しました: '+err.message);button.disabled=false;}
 });
+const APP_LABELS=${JSON.stringify(Object.fromEntries(Object.entries(SCHOOL_PROFILE.apps).map(([id,a])=>[id,a.label])))};
+const EXAM_IDS=${JSON.stringify((SCHOOL_PROFILE.exams||[]).map(x=>x.id))};
+
+let answerCursor=null,answerRequest=0;
+const answerLabels={correct:'正解',wrong:'不正解',partial:'部分正解',unanswered:'未回答',ungraded:'未判定'};
+$('answerApp').innerHTML+=[...Object.entries(APP_LABELS)].map(([id,label])=>'<option value="'+esc(id)+'">'+esc(label)+'</option>').join('');
+$('answerExam').innerHTML+=EXAM_IDS.map(id=>'<option>'+esc(id)+'</option>').join('');
+function answerHtml(r){return '<article class="appCard" style="margin:10px 0;overflow-wrap:anywhere"><b>'+esc(APP_LABELS[r.appId]||r.appId)+' / '+esc(r.examId||r.mode||'練習')+' / '+esc(r.questionLabel||r.questionId)+'</b><p>'+esc(r.clockUnknown?'回答日時不明':when(r.occurredAt))+' · '+esc(answerLabels[r.outcome]||r.outcome)+' · '+esc(r.gradingMethod||'採点方法の旧記録なし')+'</p><p class="small">問題ID: '+esc(r.questionId)+(r.sourceQuestionId?' / 元問題: '+esc(r.sourceQuestionId):'')+'</p>'+(r.questionText?'<p style="white-space:pre-wrap">'+esc(r.questionText)+'</p>':'')+'<div class="apps"><div><b>実際の回答</b><p style="white-space:pre-wrap">'+esc(r.answerText===undefined?'記録なし':r.answerText||'（空欄）')+'</p></div><div><b>登録解答・解答例</b><p style="white-space:pre-wrap">'+esc(r.expectedText===undefined?'記録なし':r.expectedText)+'</p></div></div>'+(r.mistakeReason?'<p style="white-space:pre-wrap"><b>判定根拠・解説</b><br>'+esc(r.mistakeReason)+'</p>':'')+'</article>';}
+async function loadAnswers(more=false){
+ const seq=++answerRequest,device=$('answerDevice').value;if(!device)return;
+ const query=new URLSearchParams({device,app:$('answerApp').value,outcome:$('answerOutcome').value,exam:$('answerExam').value,question:$('answerQuestion').value});
+ if(more&&answerCursor)query.set('cursor',answerCursor);
+ $('answerMessage').textContent='読み込み中…';$('answerMore').disabled=true;
+ try{const data=await api('/admin/api/answers?'+query);if(seq!==answerRequest)return;
+ if(!more)$('answerRows').innerHTML='';$('answerRows').insertAdjacentHTML('beforeend',data.records.map(answerHtml).join(''));
+ answerCursor=data.nextCursor;$('answerMore').hidden=!answerCursor;$('answerMessage').textContent=$('answerRows').children.length+'件表示'+(!data.records.length&&!more?'：該当する同期済み回答はありません。アプリを開いて同期してください。':'');
+ }catch(e){if(seq===answerRequest)$('answerMessage').textContent='読み込み失敗: '+e.message;}finally{if(seq===answerRequest)$('answerMore').disabled=false;}
+}
+$('answerLoad').addEventListener('click',()=>loadAnswers());$('answerMore').addEventListener('click',()=>loadAnswers(true));
+for(const id of ['answerDevice','answerApp','answerOutcome','answerExam'])$(id).addEventListener('change',()=>loadAnswers());
 load();
 </script></body></html>`;
 }

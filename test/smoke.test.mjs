@@ -138,7 +138,7 @@ test('current-state overlay updates device state and rebuilds formal state per p
 });
 
 test('Durable Object schema is reused without destructive migration',()=>{
-  assert.match(config,/indexV9\.js/);
+  assert.match(config,/indexV10\.js/);
   assert.match(config,/HouseholdProgress/);
   assert.match(config,/new_sqlite_classes/);
   assert.match(config,/ALLOWED_ORIGINS/);

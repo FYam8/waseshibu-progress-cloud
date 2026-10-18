@@ -30,10 +30,11 @@ function fixture(){
     throw new Error('unexpected endpoint');
   }
   const state={answers:{private:'DO NOT SEND'},total:()=>count};
-  function client(appId,{dbName='test-school-sync',schoolId='test-school',endpoint='https://test-school.invalid',legacyEndpoint,legacyDatabases,bad=false}={}){
+  function client(appId,{dbName='test-school-sync',schoolId='test-school',endpoint='https://test-school.invalid',legacyEndpoint,legacyDatabases,bad=false,answer=false}={}){
     const ctx={indexedDB,crypto:webcrypto,TextEncoder,AbortController,Response,fetch,setTimeout,clearTimeout,setInterval,clearInterval,btoa,navigator:{userAgent:'test',onLine:true},document:{addEventListener(){},removeEventListener(){}}};ctx.window=ctx;ctx.addEventListener=()=>{};ctx.removeEventListener=()=>{};vm.createContext(ctx);vm.runInContext(source,ctx);
     return ctx.SHARED_PROGRESS_TRANSPORT.createTransport({appId,dbName,dbVersion:7,schoolId,endpoint,legacyEndpoint,legacyDatabases,timeoutMs:5,
       loadState:()=>state,
+      buildAnswerRecords:()=>answer?[{sourceRecordId:'answer:q1',eventType:'answer_record',occurredAt:'2026-10-18T09:00:00Z',payload:{answerVersion:1,questionId:'Q1',answerText:'wrong actual answer',outcome:'wrong'}}]:[],
       buildStateRecords:()=>[{sourceRecordId:'state:summary',eventType:'progress_state',occurredAt:new Date().toISOString(),payload:bad?{total:count,rawAnswer:state.answers.private}:{total:count}}],
       buildOccurrenceRecords:()=>[],occurrenceSignature:()=>String(count),
       buildBaseline:()=>({baseline:true,eventCount:count,eventsByYear:{},capturedAt:new Date().toISOString()}),
@@ -124,4 +125,8 @@ test('different destination registration remains intact and blocks migration wit
   assert.ok(!after.some(x=>x.key==='migration:old-sync'));
   assert.ok(after.find(x=>x.key==='migrationBlocked'));
   assert.ok((await f.rows('control','old-sync')).some(x=>x.key==='registration'));
+});
+
+test('unclassified devices send explicit answer records and preserve offline retries',async()=>{
+ const f=fixture();f.setStatus('unclassified');const c=f.client('english',{answer:true});f.setMode('500');await c.sync();assert.ok((await f.rows('outbox')).some(e=>e.eventType==='answer_record'));f.setMode('accept');await c.sync();assert.equal((await f.rows('outbox')).length,0);const sent=f.requests.filter(r=>r.path==='/v1/events/batch').flatMap(r=>r.body.events);assert.ok(sent.some(e=>e.payload.answerText==='wrong actual answer'));await c.sync();assert.equal((await f.rows('seen_v2')).filter(r=>r.sourceRecordId==='answer:q1').length,1);
 });
